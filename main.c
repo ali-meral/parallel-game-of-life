@@ -60,7 +60,7 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
         printf("\n");
       }
     }
-    fflush(stdout);
+    fflush(stdout);mpi_rand
     MPI_Barrier(MPI_COMM_WORLD);
   }
 }
@@ -260,4 +260,4 @@ int main(int argc, char *argv[])
 }
 
 // how to compile and run sequentially
-// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 5 -v -i 2
+// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 5 -v -i 2 > input.txt
