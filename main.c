@@ -101,6 +101,27 @@ void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_
   }
 }
 
+void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int *alive_count, int *dead_count)
+{
+  *alive_count = 0;
+  *dead_count = 0;
+  for (int i = 0; i < n_loc_r; i++)
+  {
+    for (int j = 0; j < n_loc_c; j++)
+    {
+      if (matrix[i][j] == 1)
+      {
+        (*alive_count)++;
+      }
+      else
+      {
+        (*dead_count)++;
+      }
+    }
+  }
+}
+
+
 int main(int argc, char *argv[])
 {
   int rank, size; // always
@@ -109,7 +130,8 @@ int main(int argc, char *argv[])
   int n = 10; // default values
   int opt;
   int verbose = 0;
-  int density = 10;     // in percent
+  int repetitions = 1;
+  int density = 10;   // in percent
   int iterations = 3; // default number of iterations
 
   int n_loc_r, n_loc_c;
@@ -127,6 +149,7 @@ int main(int argc, char *argv[])
                                          {"density", optional_argument, 0, 'd'},
                                          {"verbose", optional_argument, 0, 'v'},
                                          {"iterations", optional_argument, 0, 'i'},
+                                         {"repetitions", optional_argument, 0, 'r'},
                                          {0, 0, 0, 0}};
 
   MPI_Init(&argc, &argv);
@@ -134,7 +157,7 @@ int main(int argc, char *argv[])
   while (1)
   {
     int option_index = 0;
-    opt = getopt_long(argc, argv, "n:s:d:vi:", long_options, &option_index);
+    opt = getopt_long(argc, argv, "n:s:d:vi:r:", long_options, &option_index);
 
     if (opt == -1)
       break;
@@ -152,6 +175,9 @@ int main(int argc, char *argv[])
       break;
     case 'i':
       iterations = atoi(optarg);
+      break;
+    case 'r':
+      repetitions = atoi(optarg);
       break;
     case 'v':
       verbose = 1;
@@ -175,8 +201,6 @@ int main(int argc, char *argv[])
 
   if (verbose == 1 && rank == 0)
   {
-    printf("n: %d\n", n);
-    printf("s: %d\n", seed);
     printf("Dimensions created: [%d, %d]\n", dims[0], dims[1]);
   }
 
@@ -222,11 +246,9 @@ int main(int argc, char *argv[])
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  if (verbose == 1)
-  {
-    printf("Generation 0:\n");
-    print_matrix(n_loc_r, n_loc_c, matrix, rank, size);
-  }
+  // Debugging options
+  // printf("Generation 0:\n");
+  // print_matrix(n_loc_r, n_loc_c, matrix, rank, size);
 
   free(matrix);
 
@@ -234,25 +256,65 @@ int main(int argc, char *argv[])
   uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
   uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
 
-  fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
+  double *times = malloc(repetitions * sizeof(double)); // Store times for each repetition
 
-  for (int gen = 0; gen < iterations; gen++)
+  for (int rep = 0; rep < repetitions; rep++)
   {
-    update_matrix(n_loc_r, n_loc_c, current, next);
-    // Swap pointers for the next iteration
-    uint8_t(*temp)[n_loc_c] = current;
-    current = next;
-    next = temp;
+    srand(seed);
+    // Initialize the current matrix with the initial state
+    fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
-    if (verbose)
+    MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
+
+    // debuggin options
+    // printf("Generation 0:\n");
+    // print_matrix(n_loc_r, n_loc_c, current, rank, size);
+
+
+    double start_time = MPI_Wtime();
+
+    for (int gen = 0; gen < iterations; gen++)
     {
-      printf("Generation %d:\n", gen + 1);
-      print_matrix(n_loc_r, n_loc_c, current, rank, size);
+      update_matrix(n, n, current, next);
+      // Swap pointers for the next iteration
+      uint8_t(*temp)[n] = current;
+      current = next;
+      next = temp;
+
+      // Debugging options
+      // printf("Generation %d:\n", gen + 1);
+      // print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
+
+    double end_time = MPI_Wtime();      // Stop the timer before post-processing
+    times[rep] = end_time - start_time; // Calculate elapsed time
+
+    // Calculate and reduce the number of alive and dead cells
+    int local_alive = 0, local_dead = 0, total_alive, total_dead;
+    count_cells(n, n, current, &local_alive, &local_dead);
+    MPI_Reduce(&local_alive, &total_alive, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_dead, &total_dead, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (rank == 0)
+    {
+      printf("Repetition %d\nTime = %.3f ms\n", rep + 1, times[rep] * 1000);
+      printf("Alive = %d, Dead = %d\n\n", total_alive, total_dead);
+    }
+  }
+
+  if (rank == 0)
+  {
+    double total_time = 0;
+    for (int i = 0; i < repetitions; i++)
+    {
+      total_time += times[i];
+    }
+    printf("Average time per repetition: %.6f seconds\n", total_time / repetitions);
   }
 
   free(current);
   free(next);
+  free(times);
 
   MPI_Finalize();
 
@@ -260,4 +322,4 @@ int main(int argc, char *argv[])
 }
 
 // how to compile and run sequentially
-// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 5 -v -i 2 > input.txt
+// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 20 -v -i 100 > input.txt
