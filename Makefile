@@ -1,30 +1,44 @@
-CC=mpicc
-CFLAGS=-Wall
-EXECUTABLE=main
-SRC=main.c
-
-# Default values if not provided
-REPS ?= 1
+# Default parameters, these can be overridden at runtime
 N ?= 100
 SEED ?= 2
 DENSITY ?= 20
-VERBOSE ?= v
 ITERATIONS ?= 5
+REPS ?= 1
 
-all: $(EXECUTABLE)
+# Compile the program
+all: main
 
-$(EXECUTABLE): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $^
+# Link objects and build the main executable
+main: main.o simulation_control.o matrix_operations.o utilities.o
+	mpicc -Wall -I./include -o $@ $^
 
+# Compile main.c
+main.o: main.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Compile simulation_control.c
+simulation_control.o: src/simulation_control.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Compile matrix_operations.c
+matrix_operations.o: src/matrix_operations.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Compile utilities.c
+utilities.o: src/utilities.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Run the program with custom parameters
 run:
-	@echo "Running $(EXECUTABLE) $(REPS) times with the following parameters:"
-	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Verbose: $(VERBOSE), Iterations: $(ITERATIONS)"
+	@echo "Running simulation $(REPS) times with the following settings:"
+	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Verbose: $(VERBOSE), Debug: $(DEBUG), Iterations: $(ITERATIONS)"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo "Repetition $$i:"; \
-		mpirun -np 1 ./$(EXECUTABLE) -n $(N) -s $(SEED) -d $(DENSITY) -$(VERBOSE) -i $(ITERATIONS); \
-	done | tee times.txt
+		mpirun -np 1 ./main -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
+	done
 
+# Clean up binary files and objects
 clean:
-	rm -f $(EXECUTABLE)
+	rm -f main *.o
 
-.PHONY: all run clean
+.PHONY: all clean run

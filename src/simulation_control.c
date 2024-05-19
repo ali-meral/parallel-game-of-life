@@ -8,32 +8,42 @@
 
 void run_simulation(int argc, char *argv[])
 {
-    int rank, size; // MPI rank and size
+    int rank, size; // always
+
     int seed = 10;
-    int n = 10; // Grid size
-    int verbose = 0;
-    int debug = 0;
-    int density = 10;   // Density of alive cells
-    int iterations = 3; // Number of generations
-
-    // Setting up MPI
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    // Command line options
-    static struct option long_options[] = {
-        {"number", required_argument, NULL, 'n'},
-        {"seed", required_argument, NULL, 's'},
-        {"density", required_argument, NULL, 'd'},
-        {"verbose", no_argument, NULL, 'v'},
-        {"debug", no_argument, NULL, 'd'},
-        {"iterations", required_argument, NULL, 'i'},
-        {NULL, 0, NULL, 0}};
-
+    int n = 10; // default values
     int opt;
-    while ((opt = getopt_long(argc, argv, "n:s:d:vbi:", long_options, NULL)) != -1)
+    int verbose = 0;
+    int density = 10;   // in percent
+    int iterations = 3; // default number of iterations
+
+    int n_loc_r, n_loc_c;
+    int nprows, npcols;
+    int prow_idx, pcol_idx;
+
+    // Cartesian communicator stuff
+    int dims[2] = {0, 0};
+    int pers[2] = {0, 0};
+    int coords[2];
+    MPI_Comm cartcomm;
+
+    static struct option long_options[] = {{"number", optional_argument, 0, 'n'},
+                                           {"seed", optional_argument, 0, 's'},
+                                           {"density", optional_argument, 0, 'd'},
+                                           {"verbose", optional_argument, 0, 'v'},
+                                           {"iterations", optional_argument, 0, 'i'},
+                                           {0, 0, 0, 0}};
+
+    MPI_Init(&argc, &argv);
+
+    while (1)
     {
+        int option_index = 0;
+        opt = getopt_long(argc, argv, "n:s:d:vi:", long_options, &option_index);
+
+        if (opt == -1)
+            break;
+
         switch (opt)
         {
         case 'n':
@@ -51,62 +61,94 @@ void run_simulation(int argc, char *argv[])
         case 'v':
             verbose = 1;
             break;
-        case 'b':
-            debug = 1;
-            break;
         default:
-            if (rank == 0)
-            {
-                fprintf(stderr, "Usage: %s -n <size> -s <seed> -d <density> -i <iterations> -v (verbose) -b (debug)\n", argv[0]);
-            }
-            MPI_Finalize();
+            fprintf(stderr, "Usage: %s -n <n> -k <k>\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     }
 
-    // Simulation parameters
-    int n_loc_r = n; // Local rows
-    int n_loc_c = n; // Local columns
-
-    if (verbose && rank == 0)
+    if (density <= 0 || density > 100)
     {
-        printf("Starting simulation with %d x %d grid, density %d%%, %d iterations, seed %d\n", n, n, density, iterations, seed);
+
+        fprintf(stderr, "Density should be between 1 and 100\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Allocate matrices
-    uint8_t(*current)[n_loc_c] = malloc(n_loc_r * sizeof(*current));
-    uint8_t(*next)[n_loc_c] = malloc(n_loc_r * sizeof(*next));
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // Initialize the matrix with random data
+    MPI_Dims_create(size, 2, dims);
+
+    if (verbose == 1 && rank == 0)
+    {
+        printf("n: %d\n", n);
+        printf("s: %d\n", seed);
+        printf("Dimensions created: [%d, %d]\n", dims[0], dims[1]);
+    }
+
+    int reorder = 0;
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, pers, reorder, &cartcomm);
+    MPI_Cart_coords(cartcomm, rank, 2, coords);
+    prow_idx = coords[0];
+    pcol_idx = coords[1];
+
+    nprows = dims[0];
+    npcols = dims[1];
+    if (n % nprows != 0 || n % npcols != 0)
+    {
+        if (rank == 0)
+        {
+            fprintf(stderr, "n should be divisible by nprows and npcols\n");
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    n_loc_r = n / nprows;
+    n_loc_c = n / npcols;
+    if (verbose == 1 && rank == 0)
+    {
+        printf("n_loc_r: %d n_loc_c: %d\n", n_loc_r, n_loc_c);
+    }
+
     srand(seed);
-    fill_matrix(n_loc_r, n_loc_c, current, n, density, 0, 0); // m_offset_r and m_offset_c are 0 for single process
 
-    // Simulation without debug
-    double start_time = MPI_Wtime();
+    int m_offset_r = prow_idx * n_loc_r;
+    int m_offset_c = pcol_idx * n_loc_c;
+    if (verbose == 1)
+    {
+        printf("%d: prow_idx: %d pcol_idx: %d m_offset_r: %d m_offset_c: %d\n", rank, prow_idx, pcol_idx, m_offset_r, m_offset_c);
+    }
 
-    // Set the update function depending on the debug flag
-    // Simulation loop
+    fflush(stdout);
+
+    // Allocate two matrices for current and next states
+    uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
+    uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
+
+    fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
+
+    // Start timing
+    double start_time, end_time, elapsed_time;
+    MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
+    start_time = MPI_Wtime();
+
     for (int gen = 0; gen < iterations; gen++)
     {
-        //update_matrix(n_loc_r, n_loc_c, current, next);
         update_matrix(n_loc_r, n_loc_c, current, next);
-        // Swap pointers
+        // to debug uncomment the next file instead
+        // update_matrix_debug(n_loc_r, n_loc_c, current, next, rank, size, gen);
+        // Swap pointers for the next iteration
         uint8_t(*temp)[n_loc_c] = current;
         current = next;
         next = temp;
     }
 
-    double end_time = MPI_Wtime();
-    double elapsed_time = end_time - start_time;
+    end_time = MPI_Wtime(); // Stop the timer before post-processing
+    elapsed_time = end_time - start_time;
 
-    // If debug is enabled, repeat with debug output
-    if (debug == 1)
+    // If verbose is enabled, use update debug function with the same loop
+    if (verbose == 1)
     {
-        printf("Debugging---------------------------\n");
-
-        // Reinitialize the matrix
-        srand(seed);
-        fill_matrix(n_loc_r, n_loc_c, current, n, density, 0, 0);
         for (int gen = 0; gen < iterations; gen++)
         {
             update_matrix_debug(n_loc_r, n_loc_c, current, next, rank, size, gen);
@@ -114,14 +156,17 @@ void run_simulation(int argc, char *argv[])
             current = next;
             next = temp;
         }
-        printf("------------------------------------\n");
     }
 
-    // Count alive and dead cells
-    int local_alive, local_dead, total_alive, total_dead;
+    int local_alive = 0, local_dead = 0;
     count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
+
+    int total_alive, total_dead;
     MPI_Reduce(&local_alive, &total_alive, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&local_dead, &total_dead, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    // fflush(stdout);
+    // MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank == 0)
     {
@@ -129,7 +174,6 @@ void run_simulation(int argc, char *argv[])
         printf("Computation time: %f ms\n\n", elapsed_time * 1000);
     }
 
-    // Cleanup
     free(current);
     free(next);
 
