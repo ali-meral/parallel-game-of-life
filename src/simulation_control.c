@@ -127,6 +127,13 @@ void run_simulation(int argc, char *argv[])
 
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
+    // print if verbose
+    if (verbose == 1)
+    {
+    printf("Generation 0:\n");
+    print_matrix(n_loc_r, n_loc_c, current, rank, size);
+    }
+
     // Start timing
     double start_time, end_time, elapsed_time;
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
@@ -136,7 +143,13 @@ void run_simulation(int argc, char *argv[])
     {
         update_matrix(n_loc_r, n_loc_c, current, next);
         // to debug uncomment the next file instead
-        // update_matrix_debug(n_loc_r, n_loc_c, current, next, rank, size, gen);
+
+        // Debugging options
+        if (verbose == 1)
+        {
+            printf("Generation %d:\n", gen + 1);
+            print_matrix(n_loc_r, n_loc_c, next, rank, size);
+        }
         // Swap pointers for the next iteration
         uint8_t(*temp)[n_loc_c] = current;
         current = next;
@@ -146,19 +159,8 @@ void run_simulation(int argc, char *argv[])
     end_time = MPI_Wtime(); // Stop the timer before post-processing
     elapsed_time = end_time - start_time;
 
-    // If verbose is enabled, use update debug function with the same loop
-    if (verbose == 1)
-    {
-        for (int gen = 0; gen < iterations; gen++)
-        {
-            update_matrix_debug(n_loc_r, n_loc_c, current, next, rank, size, gen);
-            uint8_t(*temp)[n_loc_c] = current;
-            current = next;
-            next = temp;
-        }
-    }
-
-    int local_alive = 0, local_dead = 0;
+    int local_alive = 0;
+    int local_dead = 0;
     count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
 
     int total_alive, total_dead;

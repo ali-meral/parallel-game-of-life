@@ -46,62 +46,87 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
   }
 }
 
-void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c])
-{
-  int neighbors;
-  // Use extended indices for seamless wrap-around with an extra row/column at each boundary
-  int extended_r = n_loc_r + 2;
-  int extended_c = n_loc_c + 2;
-  uint8_t extended[extended_r][extended_c];
-
-  // Prepare extended matrix with wrap-around
-  for (int i = 0; i < n_loc_r; i++)
-  {
-    for (int j = 0; j < n_loc_c; j++)
-    {
-      extended[i + 1][j + 1] = current[i][j];
+void update_matrix_w_modulus(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c]) {
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            int neighbors = 
+                current[(i - 2 + n_loc_r) % n_loc_r][(j - 2 + n_loc_c) % n_loc_c] +
+                current[(i - 2 + n_loc_r) % n_loc_r][(j + 2) % n_loc_c] +
+                current[(i - 1 + n_loc_r) % n_loc_r][j % n_loc_c] +
+                current[(i - 1 + n_loc_r) % n_loc_r][(j + 1) % n_loc_c] +
+                current[i % n_loc_r][(j - 2 + n_loc_c) % n_loc_c] +
+                current[i % n_loc_r][(j + 1) % n_loc_c] +
+                current[(i + 2) % n_loc_r][(j - 2 + n_loc_c) % n_loc_c] +
+                current[(i + 2) % n_loc_r][j % n_loc_c] +
+                current[(i + 2) % n_loc_r][(j + 2) % n_loc_c];
+            
+            next[i][j] = (neighbors == 3 || (neighbors == 2 && current[i][j]));
+        }
     }
-  }
-  // Fill in wrap-around cells
-  for (int i = 1; i <= n_loc_r; i++)
-  {
-    extended[i][0] = current[i - 1][n_loc_c - 1];
-    extended[i][n_loc_c + 1] = current[i - 1][0];
-  }
-  for (int j = 1; j <= n_loc_c; j++)
-  {
-    extended[0][j] = current[n_loc_r - 1][j - 1];
-    extended[n_loc_r + 1][j] = current[0][j - 1];
-  }
-  // Corners
-  extended[0][0] = current[n_loc_r - 1][n_loc_c - 1];
-  extended[0][n_loc_c + 1] = current[n_loc_r - 1][0];
-  extended[n_loc_r + 1][0] = current[0][n_loc_c - 1];
-  extended[n_loc_r + 1][n_loc_c + 1] = current[0][0];
-
-  // Update cells without conditional statements
-  for (int i = 1; i <= n_loc_r; i++)
-  {
-    for (int j = 1; j <= n_loc_c; j++)
-    {
-      neighbors = extended[i - 1][j - 1] + extended[i - 1][j] + extended[i - 1][j + 1] +
-                  extended[i][j - 1] + extended[i][j + 1] +
-                  extended[i + 1][j - 1] + extended[i + 1][j] + extended[i + 1][j + 1];
-      // Compute next state using arithmetic
-      next[i - 1][j - 1] = neighbors == 3 || (neighbors == 2 && extended[i][j]);
-    }
-  }
 }
 
-void update_matrix_debug(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c], int rank, int size, int generation)
-{
-  // Call the standard update function first (assuming it's already implemented)
-  update_matrix(n_loc_r, n_loc_c, current, next);
 
-  // Print the 'next' matrix with generation info
-  if (rank == 0)
-  { // Assuming rank 0 is responsible for output
-    printf("Generation %d:\n", generation);
-    print_matrix(n_loc_r, n_loc_c, current, rank, size);
-  }
+void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended)[n_loc_c + 4]) {
+    // Fill the center of the extended grid with the original grid
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            extended[i + 2][j + 2] = current[i][j];
+        }
+    }
+
+    // Fill the wrap-around rows
+    for (int j = 0; j < n_loc_c; j++) {
+        extended[0][j + 2] = current[n_loc_r - 2][j];
+        extended[1][j + 2] = current[n_loc_r - 1][j];
+        extended[n_loc_r + 2][j + 2] = current[0][j];
+        extended[n_loc_r + 3][j + 2] = current[1][j];
+    }
+
+    // Fill the wrap-around columns
+    for (int i = 0; i < n_loc_r; i++) {
+        extended[i + 2][0] = current[i][n_loc_c - 2];
+        extended[i + 2][1] = current[i][n_loc_c - 1];
+        extended[i + 2][n_loc_c + 2] = current[i][0];
+        extended[i + 2][n_loc_c + 3] = current[i][1];
+    }
+
+    // Fill the corners
+    extended[0][0] = current[n_loc_r - 2][n_loc_c - 2];
+    extended[0][1] = current[n_loc_r - 2][n_loc_c - 1];
+    extended[0][n_loc_c + 2] = current[n_loc_r - 2][0];
+    extended[0][n_loc_c + 3] = current[n_loc_r - 2][1];
+    
+    extended[1][0] = current[n_loc_r - 1][n_loc_c - 2];
+    extended[1][1] = current[n_loc_r - 1][n_loc_c - 1];
+    extended[1][n_loc_c + 2] = current[n_loc_r - 1][0];
+    extended[1][n_loc_c + 3] = current[n_loc_r - 1][1];
+    
+    extended[n_loc_r + 2][0] = current[0][n_loc_c - 2];
+    extended[n_loc_r + 2][1] = current[0][n_loc_c - 1];
+    extended[n_loc_r + 2][n_loc_c + 2] = current[0][0];
+    extended[n_loc_r + 2][n_loc_c + 3] = current[0][1];
+    
+    extended[n_loc_r + 3][0] = current[1][n_loc_c - 2];
+    extended[n_loc_r + 3][1] = current[1][n_loc_c - 1];
+    extended[n_loc_r + 3][n_loc_c + 2] = current[1][0];
+    extended[n_loc_r + 3][n_loc_c + 3] = current[1][1];
+}
+
+void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c]) {
+    int neighbors;
+    uint8_t extended[n_loc_r + 4][n_loc_c + 4];
+
+    fill_extended_grid(n_loc_r, n_loc_c, current, extended);
+
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            neighbors = extended[i - 2][j - 2] + extended[i - 2][j + 2] +
+                        extended[i - 1][j] + extended[i - 1][j + 1] +
+                        extended[i][j - 2] + extended[i][j + 1] +
+                        extended[i + 2][j - 2] + extended[i + 2][j] +
+                        extended[i + 2][j + 2];
+
+            next[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended[i][j]));
+        }
+    }
 }

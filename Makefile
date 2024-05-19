@@ -31,7 +31,7 @@ utilities.o: src/utilities.c
 # Run the program with custom parameters
 run:
 	@echo "Running simulation $(REPS) times with the following settings:"
-	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Verbose: $(VERBOSE), Debug: $(DEBUG), Iterations: $(ITERATIONS)"
+	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS)"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo "Repetition $$i:"; \
 		mpirun -np 1 ./main -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
