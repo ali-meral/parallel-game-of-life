@@ -60,7 +60,7 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
         printf("\n");
       }
     }
-    fflush(stdout);mpi_rand
+    fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);
   }
 }
