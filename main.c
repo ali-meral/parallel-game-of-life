@@ -65,40 +65,46 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
   }
 }
 
-// HOOOOO
+
 void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c])
 {
-  int neighbors;
-  int ni;
-  int nj;
-  for (int i = 0; i < n_loc_r; i++)
-  {
-    for (int j = 0; j < n_loc_c; j++)
-    {
-      neighbors = 0;
-      // checking all eight surrounding cells
-      for (int di = -1; di <= 1; di++)
-      {
-        for (int dj = -1; dj <= 1; dj++)
-        {
-          // skip center
-          if (di == 0 && dj == 0)
-            continue;
-          ni = (i + di + n_loc_r) % n_loc_r; // wrap around
-          nj = (j + dj + n_loc_c) % n_loc_c; // wrap around
-          if (current[ni][nj] == 1)
-            neighbors++;
+    int neighbors;
+    // Use extended indices for seamless wrap-around with an extra row/column at each boundary
+    int extended_r = n_loc_r + 2;
+    int extended_c = n_loc_c + 2;
+    uint8_t extended[extended_r][extended_c];
+
+    // Prepare extended matrix with wrap-around
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            extended[i + 1][j + 1] = current[i][j];
         }
-      }
-      // Rules of Life
-      if (current[i][j] == 1 && (neighbors == 2 || neighbors == 3))
-        next[i][j] = 1; // survive
-      else if (current[i][j] == 0 && neighbors == 3)
-        next[i][j] = 1; // born
-      else
-        next[i][j] = 0; // die
     }
-  }
+    // Fill in wrap-around cells
+    for (int i = 1; i <= n_loc_r; i++) {
+        extended[i][0] = current[i - 1][n_loc_c - 1];
+        extended[i][n_loc_c + 1] = current[i - 1][0];
+    }
+    for (int j = 1; j <= n_loc_c; j++) {
+        extended[0][j] = current[n_loc_r - 1][j - 1];
+        extended[n_loc_r + 1][j] = current[0][j - 1];
+    }
+    // Corners
+    extended[0][0] = current[n_loc_r - 1][n_loc_c - 1];
+    extended[0][n_loc_c + 1] = current[n_loc_r - 1][0];
+    extended[n_loc_r + 1][0] = current[0][n_loc_c - 1];
+    extended[n_loc_r + 1][n_loc_c + 1] = current[0][0];
+
+    // Update cells without conditional statements
+    for (int i = 1; i <= n_loc_r; i++) {
+        for (int j = 1; j <= n_loc_c; j++) {
+            neighbors = extended[i - 1][j - 1] + extended[i - 1][j] + extended[i - 1][j + 1] +
+                        extended[i][j - 1]                     + extended[i][j + 1] +
+                        extended[i + 1][j - 1] + extended[i + 1][j] + extended[i + 1][j + 1];
+            // Compute next state using arithmetic
+            next[i - 1][j - 1] = neighbors == 3 || (neighbors == 2 && extended[i][j]);
+        }
+    }
 }
 
 void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int *alive_count, int *dead_count)
@@ -121,7 +127,6 @@ void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int
   }
 }
 
-
 int main(int argc, char *argv[])
 {
   int rank, size; // always
@@ -130,7 +135,6 @@ int main(int argc, char *argv[])
   int n = 10; // default values
   int opt;
   int verbose = 0;
-  int repetitions = 1;
   int density = 10;   // in percent
   int iterations = 3; // default number of iterations
 
@@ -149,7 +153,6 @@ int main(int argc, char *argv[])
                                          {"density", optional_argument, 0, 'd'},
                                          {"verbose", optional_argument, 0, 'v'},
                                          {"iterations", optional_argument, 0, 'i'},
-                                         {"repetitions", optional_argument, 0, 'r'},
                                          {0, 0, 0, 0}};
 
   MPI_Init(&argc, &argv);
@@ -157,7 +160,7 @@ int main(int argc, char *argv[])
   while (1)
   {
     int option_index = 0;
-    opt = getopt_long(argc, argv, "n:s:d:vi:r:", long_options, &option_index);
+    opt = getopt_long(argc, argv, "n:s:d:vi:", long_options, &option_index);
 
     if (opt == -1)
       break;
@@ -175,9 +178,6 @@ int main(int argc, char *argv[])
       break;
     case 'i':
       iterations = atoi(optarg);
-      break;
-    case 'r':
-      repetitions = atoi(optarg);
       break;
     case 'v':
       verbose = 1;
@@ -250,71 +250,56 @@ int main(int argc, char *argv[])
   // printf("Generation 0:\n");
   // print_matrix(n_loc_r, n_loc_c, matrix, rank, size);
 
+
   free(matrix);
 
   // Allocate two matrices for current and next states
   uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
   uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
 
-  double *times = malloc(repetitions * sizeof(double)); // Store times for each repetition
+  fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
-  for (int rep = 0; rep < repetitions; rep++)
+
+  // Start timing
+  double start_time, end_time, elapsed_time;
+  MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
+  start_time = MPI_Wtime();
+
+  for (int gen = 0; gen < iterations; gen++)
   {
-    srand(seed);
-    // Initialize the current matrix with the initial state
-    fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
+    update_matrix(n_loc_r, n_loc_c, current, next);
+    // Swap pointers for the next iteration
+    uint8_t(*temp)[n_loc_c] = current;
+    current = next;
+    next = temp;
 
-    MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
-
-    // debuggin options
-    // printf("Generation 0:\n");
+    // Debugging options
+    // printf("Generation %d:\n", gen + 1);
     // print_matrix(n_loc_r, n_loc_c, current, rank, size);
-
-
-    double start_time = MPI_Wtime();
-
-    for (int gen = 0; gen < iterations; gen++)
-    {
-      update_matrix(n, n, current, next);
-      // Swap pointers for the next iteration
-      uint8_t(*temp)[n] = current;
-      current = next;
-      next = temp;
-
-      // Debugging options
-      // printf("Generation %d:\n", gen + 1);
-      // print_matrix(n_loc_r, n_loc_c, current, rank, size);
-    }
-
-    double end_time = MPI_Wtime();      // Stop the timer before post-processing
-    times[rep] = end_time - start_time; // Calculate elapsed time
-
-    // Calculate and reduce the number of alive and dead cells
-    int local_alive = 0, local_dead = 0, total_alive, total_dead;
-    count_cells(n, n, current, &local_alive, &local_dead);
-    MPI_Reduce(&local_alive, &total_alive, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_dead, &total_dead, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if (rank == 0)
-    {
-      printf("Repetition %d\nTime = %.3f ms\n", rep + 1, times[rep] * 1000);
-      printf("Alive = %d, Dead = %d\n\n", total_alive, total_dead);
-    }
   }
+
+  end_time = MPI_Wtime(); // Stop the timer before post-processing
+  elapsed_time = end_time - start_time;
+
+  int local_alive = 0, local_dead = 0;
+  count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
+
+  int total_alive, total_dead;
+  MPI_Reduce(&local_alive, &total_alive, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&local_dead, &total_dead, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
   if (rank == 0)
   {
-    double total_time = 0;
-    for (int i = 0; i < repetitions; i++)
-    {
-      total_time += times[i];
-    }
-    printf("Average time per repetition: %.6f seconds\n", total_time / repetitions);
+    printf("Alive cells: %d, Dead cells: %d\n", total_alive, total_dead);
+
+    // if (verbose == 1)
+    // {
+      printf("Computation time: %f ms\n\n", elapsed_time * 1000);
+    // }
   }
 
   free(current);
   free(next);
-  free(times);
 
   MPI_Finalize();
 
@@ -322,4 +307,10 @@ int main(int argc, char *argv[])
 }
 
 // how to compile and run sequentially
-// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 20 -v -i 100 > input.txt
+// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 20 -v -i 100
+// how to compile and run sequentially and save the results for plotting
+// mpicc -o main main.c && mpirun -np 1 ./main -n 10 -s 1 -d 20 -v -i 100  > input.txt
+// how to run repetitions
+// make clean
+// make
+// make run REPS=10 N=10 SEED=1 DENSITY=20 VERBOSE= ITERATIONS=100
