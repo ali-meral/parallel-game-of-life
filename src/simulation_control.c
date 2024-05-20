@@ -26,6 +26,8 @@ void run_simulation(int argc, char *argv[])
     int pers[2] = {0, 0};
     int coords[2];
     MPI_Comm cartcomm;
+    MPI_Comm cartcomm_reorder;
+
 
     static struct option long_options[] = {{"number", optional_argument, 0, 'n'},
                                            {"seed", optional_argument, 0, 's'},
@@ -77,6 +79,7 @@ void run_simulation(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+
     MPI_Dims_create(size, 2, dims);
 
     if (verbose == 1 && rank == 0)
@@ -91,6 +94,30 @@ void run_simulation(int argc, char *argv[])
     MPI_Cart_coords(cartcomm, rank, 2, coords);
     prow_idx = coords[0];
     pcol_idx = coords[1];
+
+
+    // Reordering of ranks
+    // Create Cartesian Communicator with Reordering
+    reorder = 1;
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, pers, reorder, &cartcomm_reorder);
+    // Compare Communicators
+    int result;
+    MPI_Comm_compare(cartcomm, cartcomm_reorder, &result);
+    
+    if (rank == 0) {
+        printf("After reordering the communicators are ");
+        if (result == MPI_IDENT) {
+            printf("identical.\n");
+        } else if (result == MPI_CONGRUENT) {
+            printf("congruent.\n");
+        } else if (result == MPI_SIMILAR) {
+            printf("similar.\n");
+        } else if (result == MPI_UNEQUAL) {
+            printf("unequal.\n");
+        }
+    }
+
+
 
     nprows = dims[0];
     npcols = dims[1];
@@ -110,13 +137,20 @@ void run_simulation(int argc, char *argv[])
         printf("n_loc_r: %d n_loc_c: %d\n", n_loc_r, n_loc_c);
     }
 
+
+    // get neighbors of the current rank
+        // Determine the neighbors of the current process
+    int left, right, up, down;
+    MPI_Cart_shift(cartcomm, 1, 1, &left, &right);
+    MPI_Cart_shift(cartcomm, 0, 1, &up, &down);
+
     srand(seed);
 
     int m_offset_r = prow_idx * n_loc_r;
     int m_offset_c = pcol_idx * n_loc_c;
     if (verbose == 1)
     {
-        printf("%d: prow_idx: %d pcol_idx: %d m_offset_r: %d m_offset_c: %d\n", rank, prow_idx, pcol_idx, m_offset_r, m_offset_c);
+        printf("Rank %d: prow_idx: %d pcol_idx: %d m_offset_r: %d m_offset_c: %d\n", rank, prow_idx, pcol_idx, m_offset_r, m_offset_c);
     }
 
     fflush(stdout);
@@ -127,6 +161,14 @@ void run_simulation(int argc, char *argv[])
 
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
+    // Allocate buffer for gathering the entire matrix on the root process
+    uint8_t *global_matrix = NULL;
+    if (rank == 0)
+    {
+        global_matrix = (uint8_t *)malloc(n * n * sizeof(uint8_t));
+    }
+
+    
     // print if verbose
     if (verbose == 1)
     {
@@ -142,13 +184,21 @@ void run_simulation(int argc, char *argv[])
     for (int gen = 0; gen < iterations; gen++)
     {
         update_matrix(n_loc_r, n_loc_c, current, next);
-        // to debug uncomment the next file instead
 
-        // Debugging options
-        if (verbose == 1)
+        // Gather the submatrices to the root process
+        MPI_Gather(next, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
+
+        // print for each process
+        // if (verbose == 1)
+        // {
+        //     printf("Generation %d:\n", gen + 1);
+        //     print_matrix(n_loc_r, n_loc_c, next, rank, size);
+        // }
+
+        if (rank == 0 && verbose == 1)
         {
-            printf("Generation %d:\n", gen + 1);
-            print_matrix(n_loc_r, n_loc_c, next, rank, size);
+            printf("Global Generation %d:\n", gen + 1);
+            print_matrix(n, n, (uint8_t(*)[n])global_matrix, rank, size);
         }
         // Swap pointers for the next iteration
         uint8_t(*temp)[n_loc_c] = current;
