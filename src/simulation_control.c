@@ -16,6 +16,7 @@ void run_simulation(int argc, char *argv[])
     int verbose = 0;
     int density = 10;   // in percent
     int iterations = 3; // default number of iterations
+    int verify = 0;
 
     int n_loc_r, n_loc_c;
     int nprows, npcols;
@@ -33,6 +34,7 @@ void run_simulation(int argc, char *argv[])
                                            {"density", optional_argument, 0, 'd'},
                                            {"verbose", optional_argument, 0, 'v'},
                                            {"iterations", optional_argument, 0, 'i'},
+                                           {"verify", optional_argument, 0, 'c'},
                                            {0, 0, 0, 0}};
 
     MPI_Init(&argc, &argv);
@@ -40,7 +42,7 @@ void run_simulation(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        opt = getopt_long(argc, argv, "n:s:d:vi:", long_options, &option_index);
+        opt = getopt_long(argc, argv, "n:s:d:vi:c", long_options, &option_index);
 
         if (opt == -1)
             break;
@@ -61,6 +63,9 @@ void run_simulation(int argc, char *argv[])
             break;
         case 'v':
             verbose = 1;
+            break;
+        case 'c':
+            verify = 1;
             break;
         default:
             fprintf(stderr, "Usage: %s -n <n> -k <k>\n", argv[0]);
@@ -200,7 +205,7 @@ void run_simulation(int argc, char *argv[])
         // }
     }
     // print the final generation of the sequential implementation
-    if (rank == 0)
+    if (rank == 0 && verbose == 1)
     {
         printf("Sequential Final Generation %d:\n", iterations);
         print_matrix(n, n, global_matrix_seq, rank, size);
@@ -261,15 +266,14 @@ void run_simulation(int argc, char *argv[])
     // MPI_Barrier(MPI_COMM_WORLD);
 
     // Compare matrices 
-    if (rank == 0) {
+    if (rank == 0 && verify == 1) {
         int result = compare_matrices(n, global_matrix_seq, global_matrix_par);
         if (result == 1) {
-            printf("Matrices are equal.\n");
+            printf("Parallel and sequential computed matrices match.\n");
         } else {
-            printf("Matrices are not equal.\n");
+            printf("Parallel and sequential computed matrices do not match.\n");
         }
     }
-
 
 
     free(current);
