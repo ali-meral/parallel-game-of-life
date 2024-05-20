@@ -154,6 +154,14 @@ void run_simulation(int argc, char *argv[])
     uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
     uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
 
+    // for sequential implementation
+    uint8_t(*global_matrix_seq)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+    uint8_t(*next_global_matrix_seq)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+
+    // for parallel implementation, just to gather the results
+    uint8_t(*global_matrix_par)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+
+
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
     // print if verbose
@@ -163,45 +171,36 @@ void run_simulation(int argc, char *argv[])
         print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
 
-    // SEQUENTIAL IMPLEMENTATION ==========================================================
+    // SEQUENTIAL IMPLEMENTATION START ==========================================================
     // Allocate a global matrix for the root process
-    uint8_t(*global_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
     // fill the global matrix using the same seed with the fill function without gather
     srand(seed);
-    fill_matrix(n, n, global_matrix, n, density, 0, 0);
+    fill_matrix(n, n, global_matrix_seq, n, density, 0, 0);
     //  print global matrix
     if (rank == 0 && verbose == 1)
     {
         printf("Sequential Global Generation 0:\n");
-        print_matrix(n, n, global_matrix, rank, size);
+        print_matrix(n, n, global_matrix_seq, rank, size);
     }
 
     // Sequential update loop
     for (int gen = 0; gen < iterations; gen++)
     {
-        // Allocate memory for the next generation
-        uint8_t(*next_global_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
-        // Perform the update
-        update_matrix(n, n, global_matrix, next_global_matrix);
+        update_matrix(n, n, global_matrix_seq, next_global_matrix_seq);
 
-        // Swap the current and next generation matrices
-        uint8_t(*temp)[n] = global_matrix;
-        global_matrix = next_global_matrix;
-        next_global_matrix = temp;
+        uint8_t(*temp)[n] = global_matrix_seq;
+        global_matrix_seq = next_global_matrix_seq;
+        next_global_matrix_seq = temp;
 
-        // Free the memory for the next generation matrix
-        free(next_global_matrix);
-
-        // Print the updated global matrix if verbose
         if (rank == 0 && verbose == 1)
         {
             printf("Sequential Global Generation %d:\n", gen + 1);
-            print_matrix(n, n, global_matrix, rank, size);
+            print_matrix(n, n, global_matrix_seq, rank, size);
         }
     }
 
-    // SEQUENTIAL IMPLEMENTATION ==========================================================
+    // SEQUENTIAL IMPLEMENTATION END ==========================================================
 
     // Start timing
     double start_time, end_time, elapsed_time;
@@ -213,9 +212,9 @@ void run_simulation(int argc, char *argv[])
         update_matrix(n_loc_r, n_loc_c, current, next);
 
         // Gather the submatrices to the root process
-        MPI_Gather(next, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
+        MPI_Gather(next, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix_par, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
 
-        // print for each process
+        // uncomment to print for each process
         // if (verbose == 1)
         // {
         //     printf("Generation %d:\n", gen + 1);
@@ -224,8 +223,8 @@ void run_simulation(int argc, char *argv[])
 
         if (rank == 0 && verbose == 1)
         {
-            printf("Global Generation %d:\n", gen + 1);
-            print_matrix(n, n, (uint8_t(*)[n])global_matrix, rank, size);
+            printf("Parallel Global Generation %d:\n", gen + 1);
+            print_matrix(n, n, (uint8_t(*)[n])global_matrix_par, rank, size);
         }
         // Swap pointers for the next iteration
         uint8_t(*temp)[n_loc_c] = current;
@@ -255,6 +254,9 @@ void run_simulation(int argc, char *argv[])
 
     free(current);
     free(next);
+    free(global_matrix_seq);
+    free(next_global_matrix_seq);
+    free(global_matrix_par);
 
     MPI_Finalize();
 }
