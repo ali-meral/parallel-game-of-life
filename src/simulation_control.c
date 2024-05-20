@@ -161,7 +161,6 @@ void run_simulation(int argc, char *argv[])
     // for parallel implementation, just to gather the results
     uint8_t(*global_matrix_par)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
-
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
     // print if verbose
@@ -184,7 +183,7 @@ void run_simulation(int argc, char *argv[])
     }
 
     // Sequential update loop
-    for (int gen = 0; gen < iterations; gen++)
+    for (int gen = 1; gen < iterations + 1; gen++)
     {
 
         update_matrix(n, n, global_matrix_seq, next_global_matrix_seq);
@@ -195,7 +194,7 @@ void run_simulation(int argc, char *argv[])
 
         if (rank == 0 && verbose == 1)
         {
-            printf("Sequential Global Generation %d:\n", gen + 1);
+            printf("Sequential Global Generation %d:\n", gen);
             print_matrix(n, n, global_matrix_seq, rank, size);
         }
     }
@@ -207,12 +206,9 @@ void run_simulation(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
     start_time = MPI_Wtime();
 
-    for (int gen = 0; gen < iterations; gen++)
+    for (int gen = 1; gen < iterations + 1; gen++)
     {
         update_matrix(n_loc_r, n_loc_c, current, next);
-
-        // Gather the submatrices to the root process
-        MPI_Gather(next, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix_par, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
 
         // uncomment to print for each process
         // if (verbose == 1)
@@ -221,11 +217,6 @@ void run_simulation(int argc, char *argv[])
         //     print_matrix(n_loc_r, n_loc_c, next, rank, size);
         // }
 
-        if (rank == 0 && verbose == 1)
-        {
-            printf("Parallel Global Generation %d:\n", gen + 1);
-            print_matrix(n, n, (uint8_t(*)[n])global_matrix_par, rank, size);
-        }
         // Swap pointers for the next iteration
         uint8_t(*temp)[n_loc_c] = current;
         current = next;
@@ -235,22 +226,34 @@ void run_simulation(int argc, char *argv[])
     end_time = MPI_Wtime(); // Stop the timer before post-processing
     elapsed_time = end_time - start_time;
 
-    int local_alive = 0;
-    int local_dead = 0;
-    count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
+    // Gather the submatrices to the root process
+    MPI_Gather(current, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix_par, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
 
-    int total_alive, total_dead;
-    MPI_Reduce(&local_alive, &total_alive, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_dead, &total_dead, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (rank == 0 && verbose == 1)
+    {
+        printf("Parallel Final Generation %d:\n", iterations);
+        print_matrix(n, n, (uint8_t(*)[n])global_matrix_par, rank, size);
+    }
+
+    // int local_alive = 0;
+    // int local_dead = 0;
+    // count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
+    // count instead for the global matrix
+
+    // Count cells in the global matrix at the root process
+    if (rank == 0)
+    {
+        int local_alive = 0;
+        int local_dead = 0;
+        count_cells(n, n, global_matrix_par, &local_alive, &local_dead);
+
+        printf("Global Alive cells: %d, Global Dead cells: %d\n", local_alive, local_dead);
+        printf("Computation time: %f ms\n\n", elapsed_time * 1000);
+    }
 
     // fflush(stdout);
     // MPI_Barrier(MPI_COMM_WORLD);
 
-    if (rank == 0)
-    {
-        printf("Alive cells: %d, Dead cells: %d\n", total_alive, total_dead);
-        printf("Computation time: %f ms\n\n", elapsed_time * 1000);
-    }
 
     free(current);
     free(next);
