@@ -104,18 +104,19 @@ void run_simulation(int argc, char *argv[])
     int result;
     MPI_Comm_compare(cartcomm, cartcomm_reorder, &result);
     
-    if (rank == 0) {
-        printf("After reordering the communicators are ");
-        if (result == MPI_IDENT) {
-            printf("identical.\n");
-        } else if (result == MPI_CONGRUENT) {
-            printf("congruent.\n");
-        } else if (result == MPI_SIMILAR) {
-            printf("similar.\n");
-        } else if (result == MPI_UNEQUAL) {
-            printf("unequal.\n");
-        }
-    }
+    // TODO Uncomment
+    // if (rank == 0) {
+    //     printf("After reordering the communicators are ");
+    //     if (result == MPI_IDENT) {
+    //         printf("identical.\n");
+    //     } else if (result == MPI_CONGRUENT) {
+    //         printf("congruent.\n");
+    //     } else if (result == MPI_SIMILAR) {
+    //         printf("similar.\n");
+    //     } else if (result == MPI_UNEQUAL) {
+    //         printf("unequal.\n");
+    //     }
+    // }
 
 
 
@@ -159,15 +160,8 @@ void run_simulation(int argc, char *argv[])
     uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
     uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
 
+
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
-
-    // Allocate buffer for gathering the entire matrix on the root process
-    uint8_t *global_matrix = NULL;
-    if (rank == 0)
-    {
-        global_matrix = (uint8_t *)malloc(n * n * sizeof(uint8_t));
-    }
-
     
     // print if verbose
     if (verbose == 1)
@@ -175,6 +169,21 @@ void run_simulation(int argc, char *argv[])
     printf("Generation 0:\n");
     print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
+    
+    // SEQUENTIAL IMPLEMENTATION ==========================================================
+    // Allocate a global matrix for the root process
+    uint8_t(*global_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+    // fill the global matrix using the same seed with the fill function without gather
+    srand(seed);
+    fill_matrix(n, n, global_matrix, n, density, 0, 0);
+    //  print global matrix
+    if (rank == 0 && verbose == 1)
+    {
+        printf("Global Generation 0:\n");
+        print_matrix(n, n, global_matrix, rank, size);
+    }
+    // SEQUENTIAL IMPLEMENTATION ==========================================================
+
 
     // Start timing
     double start_time, end_time, elapsed_time;
