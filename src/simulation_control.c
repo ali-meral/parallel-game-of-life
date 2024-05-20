@@ -175,7 +175,7 @@ void run_simulation(int argc, char *argv[])
     // fill the global matrix using the same seed with the fill function without gather
     srand(seed);
     fill_matrix(n, n, global_matrix_seq, n, density, 0, 0);
-    //  print global matrix
+    //  uncomment to generation 0 global matrix
     if (rank == 0 && verbose == 1)
     {
         printf("Sequential Global Generation 0:\n");
@@ -192,11 +192,18 @@ void run_simulation(int argc, char *argv[])
         global_matrix_seq = next_global_matrix_seq;
         next_global_matrix_seq = temp;
 
-        if (rank == 0 && verbose == 1)
-        {
-            printf("Sequential Global Generation %d:\n", gen);
-            print_matrix(n, n, global_matrix_seq, rank, size);
-        }
+        // uncomment to print each sequential generation
+        // if (rank == 0 && verbose == 1)
+        // {
+        //     printf("Sequential Global Generation %d:\n", gen);
+        //     print_matrix(n, n, global_matrix_seq, rank, size);
+        // }
+    }
+    // print the final generation of the sequential implementation
+    if (rank == 0)
+    {
+        printf("Sequential Final Generation %d:\n", iterations);
+        print_matrix(n, n, global_matrix_seq, rank, size);
     }
 
     // SEQUENTIAL IMPLEMENTATION END ==========================================================
@@ -226,6 +233,8 @@ void run_simulation(int argc, char *argv[])
     end_time = MPI_Wtime(); // Stop the timer before post-processing
     elapsed_time = end_time - start_time;
 
+
+    // PRINT THE FINAL GENERATION FOR VERIFICATION ==========================================================
     // Gather the submatrices to the root process
     MPI_Gather(current, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix_par, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
 
@@ -234,11 +243,8 @@ void run_simulation(int argc, char *argv[])
         printf("Parallel Final Generation %d:\n", iterations);
         print_matrix(n, n, (uint8_t(*)[n])global_matrix_par, rank, size);
     }
+    // PRINT THE FINAL GENERATION FOR VERIFICATION ==========================================================
 
-    // int local_alive = 0;
-    // int local_dead = 0;
-    // count_cells(n_loc_r, n_loc_c, current, &local_alive, &local_dead);
-    // count instead for the global matrix
 
     // Count cells in the global matrix at the root process
     if (rank == 0)
@@ -253,6 +259,17 @@ void run_simulation(int argc, char *argv[])
 
     // fflush(stdout);
     // MPI_Barrier(MPI_COMM_WORLD);
+
+    // Compare matrices 
+    if (rank == 0) {
+        int result = compare_matrices(n, global_matrix_seq, global_matrix_par);
+        if (result == 1) {
+            printf("Matrices are equal.\n");
+        } else {
+            printf("Matrices are not equal.\n");
+        }
+    }
+
 
 
     free(current);
