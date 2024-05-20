@@ -28,7 +28,6 @@ void run_simulation(int argc, char *argv[])
     MPI_Comm cartcomm;
     MPI_Comm cartcomm_reorder;
 
-
     static struct option long_options[] = {{"number", optional_argument, 0, 'n'},
                                            {"seed", optional_argument, 0, 's'},
                                            {"density", optional_argument, 0, 'd'},
@@ -79,7 +78,6 @@ void run_simulation(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-
     MPI_Dims_create(size, 2, dims);
 
     if (verbose == 1 && rank == 0)
@@ -95,7 +93,6 @@ void run_simulation(int argc, char *argv[])
     prow_idx = coords[0];
     pcol_idx = coords[1];
 
-
     // Reordering of ranks
     // Create Cartesian Communicator with Reordering
     reorder = 1;
@@ -103,7 +100,7 @@ void run_simulation(int argc, char *argv[])
     // Compare Communicators
     int result;
     MPI_Comm_compare(cartcomm, cartcomm_reorder, &result);
-    
+
     // TODO Uncomment
     // if (rank == 0) {
     //     printf("After reordering the communicators are ");
@@ -117,8 +114,6 @@ void run_simulation(int argc, char *argv[])
     //         printf("unequal.\n");
     //     }
     // }
-
-
 
     nprows = dims[0];
     npcols = dims[1];
@@ -138,9 +133,8 @@ void run_simulation(int argc, char *argv[])
         printf("n_loc_r: %d n_loc_c: %d\n", n_loc_r, n_loc_c);
     }
 
-
     // get neighbors of the current rank
-        // Determine the neighbors of the current process
+    // Determine the neighbors of the current process
     int left, right, up, down;
     MPI_Cart_shift(cartcomm, 1, 1, &left, &right);
     MPI_Cart_shift(cartcomm, 0, 1, &up, &down);
@@ -160,16 +154,15 @@ void run_simulation(int argc, char *argv[])
     uint8_t(*current)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
     uint8_t(*next)[n_loc_c] = (uint8_t(*)[n_loc_c])malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
 
-
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
-    
+
     // print if verbose
     if (verbose == 1)
     {
-    printf("Generation 0:\n");
-    print_matrix(n_loc_r, n_loc_c, current, rank, size);
+        printf("Generation 0:\n");
+        print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
-    
+
     // SEQUENTIAL IMPLEMENTATION ==========================================================
     // Allocate a global matrix for the root process
     uint8_t(*global_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
@@ -179,11 +172,36 @@ void run_simulation(int argc, char *argv[])
     //  print global matrix
     if (rank == 0 && verbose == 1)
     {
-        printf("Global Generation 0:\n");
+        printf("Sequential Global Generation 0:\n");
         print_matrix(n, n, global_matrix, rank, size);
     }
-    // SEQUENTIAL IMPLEMENTATION ==========================================================
 
+    // Sequential update loop
+    for (int gen = 0; gen < iterations; gen++)
+    {
+        // Allocate memory for the next generation
+        uint8_t(*next_global_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+
+        // Perform the update
+        update_matrix(n, n, global_matrix, next_global_matrix);
+
+        // Swap the current and next generation matrices
+        uint8_t(*temp)[n] = global_matrix;
+        global_matrix = next_global_matrix;
+        next_global_matrix = temp;
+
+        // Free the memory for the next generation matrix
+        free(next_global_matrix);
+
+        // Print the updated global matrix if verbose
+        if (rank == 0 && verbose == 1)
+        {
+            printf("Sequential Global Generation %d:\n", gen + 1);
+            print_matrix(n, n, global_matrix, rank, size);
+        }
+    }
+
+    // SEQUENTIAL IMPLEMENTATION ==========================================================
 
     // Start timing
     double start_time, end_time, elapsed_time;
