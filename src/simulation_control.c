@@ -12,7 +12,6 @@ void run_simulation(int argc, char *argv[])
 
     int seed = 10;
     int n = 10; // default values
-    int opt;
     int verbose = 0;
     int density = 10;   // in percent
     int iterations = 3; // default number of iterations
@@ -29,56 +28,10 @@ void run_simulation(int argc, char *argv[])
     MPI_Comm cartcomm;
     MPI_Comm cartcomm_reorder;
 
-    static struct option long_options[] = {{"number", optional_argument, 0, 'n'},
-                                           {"seed", optional_argument, 0, 's'},
-                                           {"density", optional_argument, 0, 'd'},
-                                           {"verbose", optional_argument, 0, 'v'},
-                                           {"iterations", optional_argument, 0, 'i'},
-                                           {"verify", optional_argument, 0, 'c'},
-                                           {0, 0, 0, 0}};
-
     MPI_Init(&argc, &argv);
 
-    while (1)
-    {
-        int option_index = 0;
-        opt = getopt_long(argc, argv, "n:s:d:vi:c", long_options, &option_index);
-
-        if (opt == -1)
-            break;
-
-        switch (opt)
-        {
-        case 'n':
-            n = atoi(optarg);
-            break;
-        case 's':
-            seed = atoi(optarg);
-            break;
-        case 'd':
-            density = atoi(optarg);
-            break;
-        case 'i':
-            iterations = atoi(optarg);
-            break;
-        case 'v':
-            verbose = 1;
-            break;
-        case 'c':
-            verify = 1;
-            break;
-        default:
-            fprintf(stderr, "Usage: %s -n <n> -k <k>\n", argv[0]);
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    if (density <= 0 || density > 100)
-    {
-
-        fprintf(stderr, "Density should be between 1 and 100\n");
-        exit(EXIT_FAILURE);
-    }
+    // Parse command-line arguments
+    parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, &verify);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -238,7 +191,6 @@ void run_simulation(int argc, char *argv[])
     end_time = MPI_Wtime(); // Stop the timer before post-processing
     elapsed_time = end_time - start_time;
 
-
     // PRINT THE FINAL GENERATION FOR VERIFICATION ==========================================================
     // Gather the submatrices to the root process
     MPI_Gather(current, n_loc_r * n_loc_c, MPI_UINT8_T, global_matrix_par, n_loc_r * n_loc_c, MPI_UINT8_T, 0, MPI_COMM_WORLD);
@@ -249,7 +201,6 @@ void run_simulation(int argc, char *argv[])
         print_matrix(n, n, (uint8_t(*)[n])global_matrix_par, rank, size);
     }
     // PRINT THE FINAL GENERATION FOR VERIFICATION ==========================================================
-
 
     // Count cells in the global matrix at the root process
     if (rank == 0)
@@ -265,17 +216,21 @@ void run_simulation(int argc, char *argv[])
     // fflush(stdout);
     // MPI_Barrier(MPI_COMM_WORLD);
 
-    // Compare matrices 
-    if (rank == 0 && verify == 1) {
+    // Compare matrices before freeing memory
+    if (rank == 0 && verify == 1)
+    {
         int result = compare_matrices(n, global_matrix_seq, global_matrix_par);
-        if (result == 1) {
+        if (result == 1)
+        {
             printf("Parallel and sequential computed matrices match.\n");
-        } else {
+        }
+        else
+        {
             printf("Parallel and sequential computed matrices do not match.\n");
         }
     }
 
-
+    // Free memory
     free(current);
     free(next);
     free(global_matrix_seq);
