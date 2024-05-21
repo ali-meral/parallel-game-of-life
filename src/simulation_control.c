@@ -26,7 +26,6 @@ void run_simulation(int argc, char *argv[])
     int pers[2] = {0, 0};
     int coords[2];
     MPI_Comm cartcomm;
-    MPI_Comm cartcomm_reorder;
 
     MPI_Init(&argc, &argv);
 
@@ -51,27 +50,8 @@ void run_simulation(int argc, char *argv[])
     prow_idx = coords[0];
     pcol_idx = coords[1];
 
-    // Reordering of ranks
-    // Create Cartesian Communicator with Reordering
-    reorder = 1;
-    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, pers, reorder, &cartcomm_reorder);
-    // Compare Communicators
-    int result;
-    MPI_Comm_compare(cartcomm, cartcomm_reorder, &result);
-
-    // TODO Uncomment
-    // if (rank == 0) {
-    //     printf("After reordering the communicators are ");
-    //     if (result == MPI_IDENT) {
-    //         printf("identical.\n");
-    //     } else if (result == MPI_CONGRUENT) {
-    //         printf("congruent.\n");
-    //     } else if (result == MPI_SIMILAR) {
-    //         printf("similar.\n");
-    //     } else if (result == MPI_UNEQUAL) {
-    //         printf("unequal.\n");
-    //     }
-    // }
+    // Reorder and compare communicators
+    reorder_and_compare_communicators(cartcomm, dims, rank, verbose);
 
     nprows = dims[0];
     npcols = dims[1];
@@ -158,8 +138,10 @@ void run_simulation(int argc, char *argv[])
         count_cells(n, n, global_matrix_par, &local_alive, &local_dead);
 
         printf("Global Alive cells: %d, Global Dead cells: %d\n", local_alive, local_dead);
+        // rank 0 prints the computation time for all the processes
+        printf("Computation time: %f ms\n\n", elapsed_time * 1000);
     }
-    printf("Computation time: %f ms\n\n", elapsed_time * 1000);
+    
 
     // Compare matrices before freeing memory
     if (verify == 1 && rank == 0)

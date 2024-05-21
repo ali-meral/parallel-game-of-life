@@ -1,6 +1,7 @@
 #include "utilities.h"
 #include "matrix_operations.h"
 #include <getopt.h>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -105,4 +106,28 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
 
     free(global_matrix_seq);
     free(next_global_matrix_seq);
+}
+
+void reorder_and_compare_communicators(MPI_Comm cartcomm, int *dims, int rank, int verbose) {
+    int reorder = 1;
+    MPI_Comm cartcomm_reorder;
+    int pers[2] = {0, 0};
+
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, pers, reorder, &cartcomm_reorder);
+
+    int result;
+    MPI_Comm_compare(cartcomm, cartcomm_reorder, &result);
+
+    if (rank == 0 && verbose == 1) {
+        printf("After reordering the communicators are ");
+        if (result == MPI_IDENT) {
+            printf("identical.\n");
+        } else if (result == MPI_CONGRUENT) {
+            printf("congruent.\n");
+        } else if (result == MPI_SIMILAR) {
+            printf("similar.\n");
+        } else if (result == MPI_UNEQUAL) {
+            printf("unequal.\n");
+        }
+    }
 }
