@@ -1,4 +1,5 @@
 # Default parameters, these can be overridden at runtime
+C ?= 1
 N ?= 100
 SEED ?= 2
 DENSITY ?= 20
@@ -31,10 +32,10 @@ utilities.o: src/utilities.c
 # Run the program with custom parameters
 run:
 	@echo "Running simulation $(REPS) times with the following settings:"
-	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS)"
+	@echo "C: $(C) ,Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS)"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo "Repetition $$i:"; \
-		mpirun -np 1 ./main -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
+		mpirun -np $(C) ./main -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
 	done
 
 # Clean up binary files and objects
