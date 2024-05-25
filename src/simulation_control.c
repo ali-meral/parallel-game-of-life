@@ -112,7 +112,8 @@ void run_simulation(int argc, char *argv[])
     // Run the simulation
     for (int gen = 1; gen < iterations + 1; gen++)
     {
-        update_matrix(n_loc_r, n_loc_c, current, next);
+        // update_matrix(n_loc_r, n_loc_c, current, next);
+        update_matrix_w_modulus(n_loc_r, n_loc_c, current, next);
         uint8_t(*temp)[n_loc_c] = current;
         current = next;
         next = temp;

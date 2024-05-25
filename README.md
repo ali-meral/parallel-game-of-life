@@ -32,6 +32,9 @@ Example:
 ```sh
 mpirun -np 1 ./main -n 10 -s 1 -d 30 -v -i 10 -c
 ```
+```sh
+mpirun -np 2 ./main -n 10 -s 1 -d 30 -v -i 10 -c
+```
 
 - `-np <number_of_processes>`: Number of processes (e.g., 1)
 - `-n <grid_size>`: Size of the grid (e.g., 10)

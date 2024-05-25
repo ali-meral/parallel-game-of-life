@@ -90,7 +90,7 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
     fill_matrix(n, n, global_matrix_seq, n, density, 0, 0);
 
     for (int gen = 1; gen <= iterations; gen++) {
-        update_matrix(n, n, global_matrix_seq, next_global_matrix_seq);
+        update_matrix_w_modulus(n, n, global_matrix_seq, next_global_matrix_seq);
 
         uint8_t(*temp)[n] = global_matrix_seq;
         global_matrix_seq = next_global_matrix_seq;
@@ -130,4 +130,8 @@ void reorder_and_compare_communicators(MPI_Comm cartcomm, int *dims, int rank, i
             printf("unequal.\n");
         }
     }
+}
+
+int wrap(int idx, int limit) {
+    return idx + limit * (idx < 0) - limit * (idx >= limit);
 }
