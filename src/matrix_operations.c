@@ -100,3 +100,33 @@ void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_
         }
     }
 }
+
+void print_matrix_debug(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank, const char *matrix_name) {
+    printf("Rank %d - %s:\n", rank, matrix_name);
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+
+void update_matrix_mpi(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c]) {
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            int neighbors =
+                extended_matrix[i - 2][j - 2] +
+                extended_matrix[i - 1][j] +
+                extended_matrix[i - 1][j + 1] +
+                extended_matrix[i][j - 2] +
+                extended_matrix[i][j + 1] +
+                extended_matrix[i + 2][j - 2] +
+                extended_matrix[i + 2][j] +
+                extended_matrix[i + 2][j + 2];
+
+            next[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended_matrix[i][j]));
+        }
+    }
+}
