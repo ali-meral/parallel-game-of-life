@@ -28,7 +28,9 @@ void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int
 int compare_matrices(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n]) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
+            
             if (matrix1[i][j] != matrix2[i][j]) {
+                printf("matrix1[%d][%d] = %d, matrix2[%d][%d] = %d\n", i, j, matrix1[i][j], i, j, matrix2[i][j]);
                 return 0; // Matrices are not equal
             }
         }

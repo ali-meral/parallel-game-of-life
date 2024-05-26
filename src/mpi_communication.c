@@ -124,30 +124,6 @@ void exchange_boundaries(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], 
                  recv_top_left, 4, MPI_UINT8_T, neighbors[0], 7,
                  cartcomm, &status);
 
-    // // Print received corners
-    // printf("Rank %d received top left corner: ", rank);
-    // for (int i = 0; i < 4; i++) {
-    //     printf("%d ", recv_top_left[i]);
-    // }
-    // printf("\n");
-
-    // printf("Rank %d received top right corner: ", rank);
-    // for (int i = 0; i < 4; i++) {
-    //     printf("%d ", recv_top_right[i]);
-    // }
-    // printf("\n");
-
-    // printf("Rank %d received bottom left corner: ", rank);
-    // for (int i = 0; i < 4; i++) {
-    //     printf("%d ", recv_bottom_left[i]);
-    // }
-    // printf("\n");
-
-    // printf("Rank %d received bottom right corner: ", rank);
-    // for (int i = 0; i < 4; i++) {
-    //     printf("%d ", recv_bottom_right[i]);
-    // }
-    // printf("\n");
 
     // Copy the current matrix into the center of the extended matrix
     for (int i = 0; i < n_loc_r; i++) {
@@ -171,26 +147,74 @@ void exchange_boundaries(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], 
         extended_matrix[i + 2][n_loc_c + 3] = recv_right[i + n_loc_r];
     }
 
+    
+    // print received corner data
+    printf("top right corner: ");
+    for (int i = 0; i < 4; i++) {
+        printf("%d ", recv_top_right[i]);
+    }
+    printf("\n");
+
+    printf("top left corner: ");
+    for (int i = 0; i < 4; i++) {
+        printf("%d ", recv_top_left[i]);
+    }
+    printf("\n");
+
+    printf("bottom left corner: ");
+    for (int i = 0; i < 4; i++) {
+        printf("%d ", recv_bottom_left[i]);
+    }
+    printf("\n");
+
+    printf("bottom right corner: ");
+
+    for (int i = 0; i < 4; i++) {
+        printf("%d ", recv_bottom_right[i]);
+    }
+    printf("\n");
+
+
     // Update the extended matrix with received corner data
+    // extended_matrix[0][0] = recv_top_left[3];
+    // extended_matrix[0][1] = recv_top_left[1];
+    // extended_matrix[1][0] = recv_top_left[2];
+    // extended_matrix[1][1] = recv_top_left[0];
+
+    // extended_matrix[0][n_loc_c + 2] = recv_top_right[1];
+    // extended_matrix[0][n_loc_c + 3] = recv_top_right[3];
+    // extended_matrix[1][n_loc_c + 2] = recv_top_right[2];
+    // extended_matrix[1][n_loc_c + 3] = recv_top_right[0];
+
+    // extended_matrix[n_loc_r + 2][0] = recv_bottom_left[3];
+    // extended_matrix[n_loc_r + 2][1] = recv_bottom_left[1];
+    // extended_matrix[n_loc_r + 3][0] = recv_bottom_left[3];
+    // extended_matrix[n_loc_r + 3][1] = recv_bottom_left[0];
+
+    // extended_matrix[n_loc_r + 2][n_loc_c + 2] = recv_bottom_right[1];
+    // extended_matrix[n_loc_r + 2][n_loc_c + 3] = recv_bottom_right[3];
+    // extended_matrix[n_loc_r + 3][n_loc_c + 2] = recv_bottom_right[2];
+    // extended_matrix[n_loc_r + 3][n_loc_c + 3] = recv_bottom_right[0];
+
     extended_matrix[0][0] = recv_top_left[3];
-    extended_matrix[0][1] = recv_top_left[1];
-    extended_matrix[1][0] = recv_top_left[2];
+    extended_matrix[0][1] = recv_top_left[1]; //
+    extended_matrix[1][0] = recv_top_left[2]; //
     extended_matrix[1][1] = recv_top_left[0];
 
-    extended_matrix[0][n_loc_c + 2] = recv_top_right[1];
+    extended_matrix[0][n_loc_c + 2] = recv_top_right[1]; //
     extended_matrix[0][n_loc_c + 3] = recv_top_right[3];
-    extended_matrix[1][n_loc_c + 2] = recv_top_right[2];
-    extended_matrix[1][n_loc_c + 3] = recv_top_right[0];
+    extended_matrix[1][n_loc_c + 2] = recv_top_right[0];
+    extended_matrix[1][n_loc_c + 3] = recv_top_right[2]; //
 
-    extended_matrix[n_loc_r + 2][0] = recv_bottom_left[1];
-    extended_matrix[n_loc_r + 2][1] = recv_bottom_left[3];
-    extended_matrix[n_loc_r + 3][0] = recv_bottom_left[0];
-    extended_matrix[n_loc_r + 3][1] = recv_bottom_left[2];
+    extended_matrix[n_loc_r + 2][0] = recv_bottom_left[1];//
+    extended_matrix[n_loc_r + 2][1] = recv_bottom_left[0];
+    extended_matrix[n_loc_r + 3][0] = recv_bottom_left[3];
+    extended_matrix[n_loc_r + 3][1] = recv_bottom_left[2];//
 
-    extended_matrix[n_loc_r + 2][n_loc_c + 2] = recv_bottom_right[1];
-    extended_matrix[n_loc_r + 2][n_loc_c + 3] = recv_bottom_right[3];
+    extended_matrix[n_loc_r + 2][n_loc_c + 2] = recv_bottom_right[0];
+    extended_matrix[n_loc_r + 2][n_loc_c + 3] = recv_bottom_right[1];
     extended_matrix[n_loc_r + 3][n_loc_c + 2] = recv_bottom_right[2];
-    extended_matrix[n_loc_r + 3][n_loc_c + 3] = recv_bottom_right[0];
+    extended_matrix[n_loc_r + 3][n_loc_c + 3] = recv_bottom_right[3];
 
     free(recv_top);
     free(recv_bottom);

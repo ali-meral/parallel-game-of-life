@@ -158,9 +158,48 @@ void run_simulation(int argc, char *argv[])
     end_time = MPI_Wtime();
     elapsed_time = end_time - start_time;
 
-    // Gather the submatrices to the root process
-    // TODO gather the results to the root process
+    // Gather the submatrices after blocking
 
+    if (rank == 0)
+    {
+        // Root process copies its own submatrix
+        for (int i = 0; i < n_loc_r; ++i)
+        {
+            for (int j = 0; j < n_loc_c; ++j)
+            {
+                global_matrix_par[m_offset_r + i][m_offset_c + j] = current[i][j];
+            }
+        }
+
+        // Root process receives submatrices from other processes and assembles the global matrix
+        for (int r = 1; r < size; ++r)
+        {
+            // Receive the submatrix
+            uint8_t *recv_buffer = (uint8_t *)malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
+            MPI_Recv(recv_buffer, n_loc_r * n_loc_c, MPI_UINT8_T, r, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            // Get the offsets for the received submatrix
+            int coords[2];
+            MPI_Cart_coords(cartcomm, r, 2, coords);
+            int recv_offset_r = coords[0] * n_loc_r;
+            int recv_offset_c = coords[1] * n_loc_c;
+
+            // Copy the received submatrix into the global matrix
+            for (int i = 0; i < n_loc_r; ++i)
+            {
+                for (int j = 0; j < n_loc_c; ++j)
+                {
+                    global_matrix_par[recv_offset_r + i][recv_offset_c + j] = recv_buffer[i * n_loc_c + j];
+                }
+            }
+            free(recv_buffer);
+        }
+    }
+    else
+    {
+        // Non-root processes send their local submatrices
+        MPI_Send(&(current[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
+    }
     if (rank == 0 && verbose == 1)
     {
         printf("Parallel Final Generation %d:\n", iterations);
@@ -179,6 +218,8 @@ void run_simulation(int argc, char *argv[])
         printf("Computation time: %f ms\n\n", elapsed_time * 1000);
     }
 
+
+
     // Compare matrices before freeing memory
     if (verify == 1 && rank == 0)
     {
@@ -189,6 +230,8 @@ void run_simulation(int argc, char *argv[])
         {
             printf("Sequential Final Generation %d:\n", iterations);
             print_matrix(n, n, final_matrix, rank, size);
+            printf("Parallel Final Generation %d:\n", iterations);
+            print_matrix(n, n, global_matrix_par, rank, size);
         }
 
         int result = compare_matrices(n, final_matrix, global_matrix_par);
