@@ -10,15 +10,15 @@ REPS ?= 1
 all: main
 
 # Link objects and build the main executable
-main: main.o simulation_control.o matrix_operations.o utilities.o
+main: main.o run_simulation.o matrix_operations.o utilities.o mpi_communication.o
 	mpicc -Wall -I./include -o $@ $^
 
 # Compile main.c
 main.o: main.c
 	mpicc -Wall -I./include -c $< -o $@
 
-# Compile simulation_control.c
-simulation_control.o: src/simulation_control.c
+# Compile run_simulation.c
+run_simulation.o: src/run_simulation.c
 	mpicc -Wall -I./include -c $< -o $@
 
 # Compile matrix_operations.c
@@ -28,6 +28,12 @@ matrix_operations.o: src/matrix_operations.c
 # Compile utilities.c
 utilities.o: src/utilities.c
 	mpicc -Wall -I./include -c $< -o $@
+
+# Compile mpi_communication.c
+mpi_communication.o: src/mpi_communication.c
+	mpicc -Wall -I./include -c $< -o $@
+
+
 
 # Run the program with custom parameters
 run:
