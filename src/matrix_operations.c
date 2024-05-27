@@ -48,6 +48,16 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
   }
 }
 
+void print_matrix_seq(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c]) {
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    fflush(stdout);
+}
+
 int wrap(int idx, int limit)
 {
   return idx + limit * (idx < 0) - limit * (idx >= limit);

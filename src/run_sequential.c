@@ -23,6 +23,11 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
         uint8_t(*temp)[n] = matrix;
         matrix = next_matrix;
         next_matrix = temp;
+
+        // print matrix with generation number
+        printf("Generation %d:\n", gen);
+        print_matrix_seq(n, n, matrix);
+
     }
 
     end_time_seq = MPI_Wtime();
@@ -43,7 +48,7 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
     free(next_matrix);
 }
 
-void run_sequential(int argc, char *argv[])
+void main_sequential(int argc, char *argv[])
 {
 
     // default values
@@ -59,9 +64,23 @@ void run_sequential(int argc, char *argv[])
 
     uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
+    // print intial matrix if verbose
+    if (verbose)
+    {
+        printf("Initial matrix:\n");
+        print_matrix_seq(n, n, final_matrix);
+    }
+
     // Time with MPI_Wtime
     run_sequential_simulation(n, seed, density, iterations, final_matrix);
-    // printf("Final matrix:\n");
+
+    // print final matrix if verbose
+    if (verbose)
+    {
+        printf("Final matrix:\n");
+        print_matrix_seq(n, n, final_matrix);
+    }
+
 
     // count cells using count_cells
     int alive = 0;

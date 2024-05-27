@@ -3,6 +3,6 @@
 #include "utilities.h"
 
 int main(int argc, char *argv[]) {
-    run_sequential(argc, argv);
+    main_sequential(argc, argv);
     return 0;
 }
