@@ -27,10 +27,14 @@ void run_collectives(int argc, char *argv[])
     MPI_Init(&argc, &argv);
 
     int dims[2] = {0, 0};
-    int pers[2] = {1, 1};
+    int pers[2] = {0, 0};
     int coords[2];
 
+
     MPI_Comm cartcomm;
+    MPI_Comm dist_graph_comm;
+
+    
 
     // Parse command-line arguments
     parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, &verify);
@@ -103,116 +107,9 @@ void run_collectives(int argc, char *argv[])
         print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
 
-    // COLLECTIVE ======================================================================
-
-    printf("Rank %d, Coordinates: (%d, %d)\n", rank, coords[0], coords[1]);
-    MPI_Datatype rowtype, coltype, cornertype;
-
-    // Create datatype for full row
-    MPI_Type_vector(n_loc_r, 1, n_loc_c, MPI_UINT8_T, &rowtype);
-    MPI_Type_commit(&rowtype);
-
-    // Create datatype for full column
-    MPI_Type_contiguous(n_loc_r, MPI_UINT8_T, &coltype);
-    MPI_Type_commit(&coltype);
-
-    // Create datatype for corner (1 element)
-    MPI_Type_contiguous(1, MPI_UINT8_T, &cornertype);
-    MPI_Type_commit(&cornertype);
-
-    // Debug print
-    printf("Rank %d created MPI datatypes.\n", rank);
-
-    int neighbors[8]; // Store ranks of neighbors
-    int upper_left_coords[2], upper_right_coords[2], lower_left_coords[2], lower_right_coords[2];
-
-    // Determine neighbor coordinates
-    upper_left_coords[0] = (coords[0] - 1 + dims[0]) % dims[0];
-    upper_left_coords[1] = (coords[1] - 1 + dims[1]) % dims[1];
-
-    upper_right_coords[0] = (coords[0] - 1 + dims[0]) % dims[0];
-    upper_right_coords[1] = (coords[1] + 1) % dims[1];
-
-    lower_left_coords[0] = (coords[0] + 1) % dims[0];
-    lower_left_coords[1] = (coords[1] - 1 + dims[1]) % dims[1];
-
-    lower_right_coords[0] = (coords[0] + 1) % dims[0];
-    lower_right_coords[1] = (coords[1] + 1) % dims[1];
-
-    // Get ranks of diagonal neighbors
-    MPI_Cart_rank(cartcomm, upper_left_coords, &neighbors[0]);
-    MPI_Cart_rank(cartcomm, upper_right_coords, &neighbors[1]);
-    MPI_Cart_rank(cartcomm, lower_left_coords, &neighbors[2]);
-    MPI_Cart_rank(cartcomm, lower_right_coords, &neighbors[3]);
-
-    // Get ranks of direct neighbors
-    MPI_Cart_shift(cartcomm, 1, 1, &neighbors[4], &neighbors[5]); // left-right
-    MPI_Cart_shift(cartcomm, 0, 1, &neighbors[6], &neighbors[7]); // up-down
-
-    // Debug print
-    printf("Rank %d neighbors: UL=%d UR=%d LL=%d LR=%d L=%d R=%d U=%d D=%d\n", rank,
-           neighbors[0], neighbors[1], neighbors[2], neighbors[3],
-           neighbors[4], neighbors[5], neighbors[6], neighbors[7]);
-
-    // Create distributed graph communicator
-    MPI_Comm dist_graph_comm;
-    MPI_Dist_graph_create_adjacent(cartcomm, 8, neighbors, MPI_UNWEIGHTED, 8, neighbors, MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &dist_graph_comm);
-
-    // Debug print
-    printf("Rank %d created distributed graph communicator.\n", rank);
-
-// Set up communication buffers
-int sendcounts[8], recvcounts[8];
-MPI_Aint senddispls[8], recvdispls[8];
-MPI_Datatype sendtypes[8], recvtypes[8];
-
-// Initialize sendcounts and recvcounts
-for (int i = 0; i < 8; i++) {
-    sendcounts[i] = recvcounts[i] = 1;
-    printf("Rank %d, init sendcounts[%d]=%d, recvcounts[%d]=%d\n", rank, i, sendcounts[i], i, recvcounts[i]);
-}
-
-// Calculate and set send displacements
-// senddispls is the displacement of the first element of the data to be sent
-// sendtypes is the datatype of the data to be sent
-senddispls[0] = (MPI_Aint)(&extended_matrix[1][1]) - (MPI_Aint)extended_matrix;
-sendtypes[0] = cornertype;
-printf("Rank %d, senddispls[0]=%ld, sendtypes[0]=%d (UL)\n", rank, senddispls[0], sendtypes[0]);
-
-senddispls[1] = (MPI_Aint)(&extended_matrix[1][n_loc_c + 1]) - (MPI_Aint)extended_matrix;
-sendtypes[1] = cornertype;
-printf("Rank %d, senddispls[1]=%ld, sendtypes[1]=%d (UR)\n", rank, senddispls[1], sendtypes[1]);
-
-senddispls[2] = (MPI_Aint)(&extended_matrix[n_loc_r + 1][1]) - (MPI_Aint)extended_matrix;
-sendtypes[2] = cornertype;
-printf("Rank %d, senddispls[2]=%ld, sendtypes[2]=%d (LL)\n", rank, senddispls[2], sendtypes[2]);
-
-senddispls[3] = (MPI_Aint)(&extended_matrix[n_loc_r + 1][n_loc_c + 1]) - (MPI_Aint)extended_matrix;
-sendtypes[3] = cornertype;
-printf("Rank %d, senddispls[3]=%ld, sendtypes[3]=%d (LR)\n", rank, senddispls[3], sendtypes[3]);
-
-senddispls[4] = (MPI_Aint)(&extended_matrix[1][0]) - (MPI_Aint)extended_matrix;
-sendtypes[4] = coltype;
-printf("Rank %d, senddispls[4]=%ld, sendtypes[4]=%d (Left)\n", rank, senddispls[4], sendtypes[4]);
-
-senddispls[5] = (MPI_Aint)(&extended_matrix[1][n_loc_c + 2]) - (MPI_Aint)extended_matrix;
-sendtypes[5] = coltype;
-printf("Rank %d, senddispls[5]=%ld, sendtypes[5]=%d (Right)\n", rank, senddispls[5], sendtypes[5]);
-
-senddispls[6] = (MPI_Aint)(&extended_matrix[0][1]) - (MPI_Aint)extended_matrix;
-sendtypes[6] = rowtype;
-printf("Rank %d, senddispls[6]=%ld, sendtypes[6]=%d (Up)\n", rank, senddispls[6], sendtypes[6]);
-
-senddispls[7] = (MPI_Aint)(&extended_matrix[n_loc_r + 2][1]) - (MPI_Aint)extended_matrix;
-sendtypes[7] = rowtype;
-printf("Rank %d, senddispls[7]=%ld, sendtypes[7]=%d (Down)\n", rank, senddispls[7], sendtypes[7]);
-
-
-
-    //==================================================================================
+    
 
     // Create MPI data type for column communication
-
     MPI_Datatype col_type;
     MPI_Type_vector(n_loc_r, 1, n_loc_c, MPI_UINT8_T, &col_type);
     MPI_Type_commit(&col_type);
@@ -262,7 +159,8 @@ printf("Rank %d, senddispls[7]=%ld, sendtypes[7]=%d (Down)\n", rank, senddispls[
             MPI_Recv(recv_buffer, n_loc_r * n_loc_c, MPI_UINT8_T, r, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             // get again the coordinates of the process
-            MPI_Cart_coords(cartcomm, r, 2, coords); // to get offset of received matrix
+            int coords[2];
+            MPI_Cart_coords(cartcomm, r, 2, coords);
             int recv_offset_r = coords[0] * n_loc_r;
             int recv_offset_c = coords[1] * n_loc_c;
 
@@ -283,6 +181,7 @@ printf("Rank %d, senddispls[7]=%ld, sendtypes[7]=%d (Down)\n", rank, senddispls[
         MPI_Send(&(current[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
     }
 
+    
     if (rank == 0 && verbose == 1)
     {
         printf("Parallel Final Generation %d:\n", iterations);
