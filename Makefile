@@ -1,24 +1,38 @@
 # Default parameters, these can be overridden at runtime
-P ?= 1
-N ?= 100
+P ?= 4
+N ?= 1000
 SEED ?= 2
 DENSITY ?= 20
-ITERATIONS ?= 5
+ITERATIONS ?= 10
 REPS ?= 1
+VERIFY ?= 1
+VERBOSE ?= 0
 
 # Compile the program
-all: main
+all: main_parallel main_sequential
 
-# Link objects and build the main executable
-main: main.o run_simulation.o matrix_operations.o utilities.o mpi_communication.o
+# Parallel target
+main_parallel: main_parallel.o run_parallel.o run_sequential.o matrix_operations.o utilities.o mpi_communication.o
 	mpicc -Wall -I./include -o $@ $^
 
-# Compile main.c
-main.o: main.c
+# Sequential target
+main_sequential: main_sequential.o run_sequential.o matrix_operations.o utilities.o
+	mpicc -Wall -I./include -o $@ $^
+
+# Compile main_parallel.c
+main_parallel.o: main_parallel.c
 	mpicc -Wall -I./include -c $< -o $@
 
-# Compile run_simulation.c
-run_simulation.o: src/run_simulation.c
+# Compile main_sequential.c
+main_sequential.o: main_sequential.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Compile run_parallel.c
+run_parallel.o: src/run_parallel.c
+	mpicc -Wall -I./include -c $< -o $@
+
+# Compile run_sequential.c
+run_sequential.o: src/run_sequential.c
 	mpicc -Wall -I./include -c $< -o $@
 
 # Compile matrix_operations.c
@@ -33,19 +47,26 @@ utilities.o: src/utilities.c
 mpi_communication.o: src/mpi_communication.c
 	mpicc -Wall -I./include -c $< -o $@
 
-
-
-# Run the program with custom parameters
-run:
-	@echo "Running simulation $(REPS) times with the following settings:"
-	@echo "C: $(P) ,Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS)"
+# Run the parallel program with custom parameters
+run_parallel: main_parallel
+	@echo "Running parallel simulation $(REPS) times with the following settings:"
+	@echo "P: $(P) , Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo "Repetition $$i:"; \
-		mpirun -np $(P) ./main -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
+		mpirun -np $(P) ./main_parallel -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
+	done
+
+# Run the sequential program with custom parameters
+run_sequential: main_sequential
+	@echo "Running sequential simulation $(REPS) times with the following settings:"
+	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
+	@for i in $$(seq 1 $(REPS)); do \
+		echo "Repetition $$i:"; \
+		./main_sequential -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
 	done
 
 # Clean up binary files and objects
 clean:
-	rm -f main *.o
+	rm -f main_parallel main_sequential *.o
 
-.PHONY: all clean run
+.PHONY: all clean run_parallel run_sequential

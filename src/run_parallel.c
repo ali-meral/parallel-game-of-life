@@ -1,4 +1,5 @@
-#include "run_simulation.h"
+#include "run_parallel.h"
+#include "run_sequential.h"
 #include "matrix_operations.h"
 #include "mpi_communication.h"
 #include "utilities.h"
@@ -7,37 +8,35 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-void run_simulation(int argc, char *argv[])
+void run_parallel(int argc, char *argv[])
 {
-    int rank, size; // always
+    int rank, size;         // rank and size of MPI communicator
+    int n_loc_r, n_loc_c;   // local dimensions of the matrix
+    int nprows, npcols;     // number of rows and columns in the process grid
+    int prow_idx, pcol_idx; // row and column index of the current process in the process grid
 
-    int seed = 10;
-    int n = 10; // default values
+    // default values
+    int seed = 1;
+    int n = 10;
+    int density = 30;
+    int iterations = 3;
     int verbose = 0;
-    int density = 10;   // in percent
-    int iterations = 3; // default number of iterations
+
     int verify = 0;
 
-    int n_loc_r, n_loc_c;
-    int nprows, npcols;
-    int prow_idx, pcol_idx;
+    MPI_Init(&argc, &argv);
 
-    // Cartesian communicator stuff
     int dims[2] = {0, 0};
     int pers[2] = {0, 0};
     int coords[2];
     MPI_Comm cartcomm;
-
-    MPI_Init(&argc, &argv);
 
     // Parse command-line arguments
     parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, &verify);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
     MPI_Dims_create(size, 2, dims);
-
     if (verbose == 1 && rank == 0)
     {
         printf("n: %d\n", n);
@@ -72,17 +71,6 @@ void run_simulation(int argc, char *argv[])
         printf("n_loc_r: %d n_loc_c: %d\n", n_loc_r, n_loc_c);
     }
 
-    ///////NEW////////////////
-    // get neighbors of the current rank
-    // Determine the neighbors of the current process
-    int left, right, up, down;
-    MPI_Cart_shift(cartcomm, 1, 1, &left, &right);
-    MPI_Cart_shift(cartcomm, 0, 1, &up, &down);
-
-    ///////NEW////////////////
-
-    srand(seed);
-
     int m_offset_r = prow_idx * n_loc_r;
     int m_offset_c = pcol_idx * n_loc_c;
     if (verbose == 1)
@@ -104,7 +92,7 @@ void run_simulation(int argc, char *argv[])
     int extended_c = n_loc_c + 4;
     uint8_t(*extended_matrix)[extended_c] = (uint8_t(*)[extended_c])malloc(extended_r * extended_c * sizeof(uint8_t));
 
-
+    srand(seed);
     fill_matrix(n_loc_r, n_loc_c, current, n, density, m_offset_r, m_offset_c);
 
     // print if verbose
@@ -114,15 +102,13 @@ void run_simulation(int argc, char *argv[])
         print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
 
-    ///////NEW////////////////
     // Create MPI data type for column communication
     MPI_Datatype col_type;
     MPI_Type_vector(n_loc_r, 1, n_loc_c, MPI_UINT8_T, &col_type);
     MPI_Type_commit(&col_type);
-    ///////NEW////////////////
 
     // Start timing
-    double start_time, end_time, elapsed_time;
+    double start_time, end_time, elapsed_time, max_time;
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize before starting the timer
     start_time = MPI_Wtime();
 
@@ -130,36 +116,24 @@ void run_simulation(int argc, char *argv[])
     for (int gen = 1; gen < iterations + 1; gen++)
     {
         exchange_boundaries(n_loc_r, n_loc_c, current, extended_matrix, cartcomm); // Exchange boundaries
-
-        // print extended matrix if verbose
-        if (verbose == 1)
-        {
-            print_matrix_debug(extended_r, extended_c, extended_matrix, rank, "Extended Matrix");
-        }
-        
-        // update_matrix(n_loc_r, n_loc_c, current, next);
-        // update_matrix_w_modulus(n_loc_r, n_loc_c, current, next);
-
         update_matrix_mpi(n_loc_r, n_loc_c, extended_matrix, next);
-
 
         uint8_t(*temp)[n_loc_c] = current;
         current = next;
         next = temp;
-
-        // print if verbose
-        if (verbose == 1)
-        {
-            printf("NotGathered %d:\n", gen);
-            print_matrix(n_loc_r, n_loc_c, current, rank, size);
-        }
     }
 
     end_time = MPI_Wtime();
     elapsed_time = end_time - start_time;
+    MPI_Reduce(&elapsed_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, cartcomm);
+
+    // print max time and also time of each process
+    if (rank == 0)
+    {
+        printf("Parallel Computation time: %f ms\n", max_time * 1000);
+    }
 
     // Gather the submatrices after blocking
-
     if (rank == 0)
     {
         // Root process copies its own submatrix
@@ -213,27 +187,16 @@ void run_simulation(int argc, char *argv[])
         int local_dead = 0;
         count_cells(n, n, global_matrix_par, &local_alive, &local_dead);
 
-        printf("Global Alive cells: %d, Global Dead cells: %d\n", local_alive, local_dead);
-        // rank 0 prints the computation time for all the processes
-        printf("Computation time: %f ms\n\n", elapsed_time * 1000);
+        printf("alive: %d, dead: %d\n", local_alive, local_dead);
     }
-
-
 
     // Compare matrices before freeing memory
     if (verify == 1 && rank == 0)
     {
         uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
+
+        // Time with MPI_Wtime
         run_sequential_simulation(n, seed, density, iterations, final_matrix);
-
-        if (verbose == 1)
-        {
-            printf("Sequential Final Generation %d:\n", iterations);
-            print_matrix(n, n, final_matrix, rank, size);
-            printf("Parallel Final Generation %d:\n", iterations);
-            print_matrix(n, n, global_matrix_par, rank, size);
-        }
-
         int result = compare_matrices(n, final_matrix, global_matrix_par);
         if (result == 1)
         {
@@ -250,14 +213,8 @@ void run_simulation(int argc, char *argv[])
     // Free memory
     free(current);
     free(next);
-    if (rank == 0)
-    {
-        free(global_matrix_par);
-    }
+    free(global_matrix_par);
     free(extended_matrix);
-    
+
     MPI_Finalize();
 }
-
-// mpicc -Wall -I./include -o main main.c src/simulation_control.c src/matrix_operations.c src/utilities.c
-// mpirun -np 1 ./main -n 10 -s 2 -d 20 -v -i 5
