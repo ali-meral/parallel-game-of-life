@@ -1,4 +1,4 @@
-#include "run_parallel.h"
+#include "run_collectives.h"
 #include "run_sequential.h"
 #include "matrix_operations.h"
 #include "mpi_communication.h"
@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-void run_parallel(int argc, char *argv[])
+void run_collectives(int argc, char *argv[])
 {
     int rank, size;         // rank and size of MPI communicator
     int n_loc_r, n_loc_c;   // local dimensions of the matrix
@@ -29,7 +29,12 @@ void run_parallel(int argc, char *argv[])
     int dims[2] = {0, 0};
     int pers[2] = {0, 0};
     int coords[2];
+
+
     MPI_Comm cartcomm;
+    MPI_Comm dist_graph_comm;
+
+    
 
     // Parse command-line arguments
     parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, &verify);
@@ -49,6 +54,8 @@ void run_parallel(int argc, char *argv[])
     MPI_Cart_coords(cartcomm, rank, 2, coords);
     prow_idx = coords[0];
     pcol_idx = coords[1];
+
+    //
 
     // Reorder and compare communicators
     reorder_and_compare_communicators(cartcomm, dims, rank, verbose);

@@ -24,9 +24,9 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
         matrix = next_matrix;
         next_matrix = temp;
 
-        // print matrix with generation number
-        printf("Generation %d:\n", gen);
-        print_matrix_seq(n, n, matrix);
+        // Uncomment to print matrix each generation
+        // printf("Generation %d:\n", gen);
+        // print_matrix_seq(n, n, matrix);
 
     }
 
@@ -40,7 +40,7 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
     {
         for (int j = 0; j < n; j++)
         {
-            final_matrix[i][j] = matrix[i][j];
+            final_matrix[i][j] = matrix[ i][j];
         }
     }
 
