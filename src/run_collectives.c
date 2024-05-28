@@ -127,56 +127,9 @@ void run_collectives(int argc, char *argv[])
 
     // COLLECTIVE ======================================================================
 
-    printf("Rank %d, Coordinates: (%d, %d)\n", rank, coords[0], coords[1]);
-    MPI_Datatype rowtype_2_layers, coltype_2_layers;
-
-    // Create datatype for two layers of rows
-    MPI_Type_vector(2, n_loc_c, n_loc_c + 4, MPI_UINT8_T, &rowtype_2_layers);
-    MPI_Type_commit(&rowtype_2_layers);
-
-    // Create datatype for two layers of columns
-    MPI_Type_vector(n_loc_r, 2, n_loc_c + 4, MPI_UINT8_T, &coltype_2_layers);
-    MPI_Type_commit(&coltype_2_layers);
-
-    MPI_Datatype cornertype_4;
-    int blocklengths[4] = {1, 1, 1, 1};
-    MPI_Aint displacements[4];
-    MPI_Datatype types[4] = {MPI_UINT8_T, MPI_UINT8_T, MPI_UINT8_T, MPI_UINT8_T};
-
-    displacements[0] = 0;
-    displacements[1] = 1 * sizeof(uint8_t);
-    displacements[2] = n_loc_c * sizeof(uint8_t);
-    displacements[3] = (n_loc_c + 1) * sizeof(uint8_t);
-
-    MPI_Type_create_struct(4, blocklengths, displacements, types, &cornertype_4);
-    MPI_Type_commit(&cornertype_4);
-
-
-    ////////// nw types for receive
-    MPI_Datatype rowtype_2_layers_recv, coltype_2_layers_recv, cornertype_4_recv;
-
-    // Create datatype for two layers of rows in the extended matrix
-    MPI_Type_vector(2, n_loc_c + 4, n_loc_c + 4, MPI_UINT8_T, &rowtype_2_layers_recv);
-    MPI_Type_commit(&rowtype_2_layers_recv);
-
-    // Create datatype for two layers of columns in the extended matrix
-    MPI_Type_vector(n_loc_r + 4, 2, n_loc_c + 4, MPI_UINT8_T, &coltype_2_layers_recv);
-    MPI_Type_commit(&coltype_2_layers_recv);
-
-    // Create datatype for 2x2 corner block in the extended matrix
-    MPI_Datatype types_recv[4] = {MPI_UINT8_T, MPI_UINT8_T, MPI_UINT8_T, MPI_UINT8_T};
-    MPI_Aint displacements_recv[4] = {0, 1 * sizeof(uint8_t), (n_loc_c + 4) * sizeof(uint8_t), (n_loc_c + 4 + 1) * sizeof(uint8_t)};
-    MPI_Type_create_struct(4, blocklengths, displacements_recv, types_recv, &cornertype_4_recv);
-    MPI_Type_commit(&cornertype_4_recv);
-    //////////
-
-
-
-
-    int neighbors[8]; // Store ranks of neighbors
+    int neighbors[8];
     int upper_left_coords[2], upper_right_coords[2], lower_left_coords[2], lower_right_coords[2];
 
-    // Determine neighbor coordinates
     upper_left_coords[0] = (coords[0] - 1 + dims[0]) % dims[0];
     upper_left_coords[1] = (coords[1] - 1 + dims[1]) % dims[1];
 
@@ -189,65 +142,136 @@ void run_collectives(int argc, char *argv[])
     lower_right_coords[0] = (coords[0] + 1) % dims[0];
     lower_right_coords[1] = (coords[1] + 1) % dims[1];
 
-    // Get ranks of diagonal neighbors
     MPI_Cart_rank(cartcomm, upper_left_coords, &neighbors[0]);
     MPI_Cart_rank(cartcomm, upper_right_coords, &neighbors[1]);
     MPI_Cart_rank(cartcomm, lower_left_coords, &neighbors[2]);
     MPI_Cart_rank(cartcomm, lower_right_coords, &neighbors[3]);
+    MPI_Cart_shift(cartcomm, 1, 1, &neighbors[4], &neighbors[5]);
+    MPI_Cart_shift(cartcomm, 0, 1, &neighbors[6], &neighbors[7]);
 
-    // Get ranks of direct neighbors
-    MPI_Cart_shift(cartcomm, 1, 1, &neighbors[4], &neighbors[5]); // left-right
-    MPI_Cart_shift(cartcomm, 0, 1, &neighbors[6], &neighbors[7]); // up-down
 
-    // Create distributed graph communicator
     MPI_Comm dist_graph_comm;
     MPI_Dist_graph_create_adjacent(cartcomm, 8, neighbors, MPI_UNWEIGHTED, 8, neighbors, MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &dist_graph_comm);
 
-    // Set up communication buffers
-    int sendcounts[8], recvcounts[8];
-    MPI_Aint senddispls[8], recvdispls[8];
-    MPI_Datatype sendtypes[8], recvtypes[8];
+    int total_send_size = 4 * 4 + 2 * 2 * n_loc_r + 2 * 2 * n_loc_c;
+    int total_recv_size = total_send_size;
 
-    // Initialize sendcounts and recvcounts
-    for (int i = 0; i < 8; i++)
-    {
-        sendcounts[i] = recvcounts[i] = 1;
+    uint8_t *sendbuf = (uint8_t *)malloc(total_send_size * sizeof(uint8_t));
+    uint8_t *recvbuf = (uint8_t *)malloc(total_recv_size * sizeof(uint8_t));
+
+
+    int sendcounts[8], recvcounts[8];
+    int senddispls[8], recvdispls[8];
+
+    int pos = 0;
+    senddispls[0] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[1] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[2] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[3] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[4] = pos;
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[5] = pos;
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[6] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    senddispls[7] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
     }
 
-    // Calculate and set send displacements using the current matrix
-    senddispls[0] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current;                                         sendtypes[0] = cornertype_4;    // upper left corner
-    senddispls[1] = ((MPI_Aint)&current[0][n_loc_c - 2]) - (MPI_Aint)current;                               sendtypes[1] = cornertype_4;    // upper right corner
-    senddispls[2] = ((MPI_Aint)&current[n_loc_r - 2][0]) - (MPI_Aint)current;                               sendtypes[2] = cornertype_4;    // lower left corner
-    senddispls[3] = ((MPI_Aint)&current[n_loc_r - 2][n_loc_c - 2]) - (MPI_Aint)current;                     sendtypes[3] = cornertype_4;    // lower right corner
+    for (int i = 0; i < 8; i++) {
+        sendcounts[i] = recvcounts[i] = (i < 4) ? 4 : ((i < 6) ? n_loc_r * 2 : n_loc_c * 2);
+        recvdispls[i] = senddispls[i];
+    }
+    MPI_Neighbor_alltoallv(sendbuf, sendcounts, senddispls, MPI_UINT8_T,
+                           recvbuf, recvcounts, recvdispls, MPI_UINT8_T,
+                           dist_graph_comm);
 
-    senddispls[4] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current;                                         sendtypes[4] = coltype_2_layers; // upper row
-    senddispls[5] = ((MPI_Aint)&current[0][n_loc_c - 2]) - (MPI_Aint)current;                               sendtypes[5] = coltype_2_layers; // lower row
-    senddispls[6] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current;                                         sendtypes[6] = rowtype_2_layers; // left column
-    senddispls[7] = ((MPI_Aint)&current[n_loc_r - 2][0]) - (MPI_Aint)current;                               sendtypes[7] = rowtype_2_layers; // right column
+    // Unpack the received data into the extended matrix
+    pos = 0;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
 
-    // Set the receive displacements using the extended matrix
-
-    // Upper left corner
-    recvdispls[0] = ((MPI_Aint)&extended_matrix[0][0]) - (MPI_Aint)extended_matrix;                         recvtypes[0] = cornertype_4;    // upper left corner
-    recvdispls[1] = ((MPI_Aint)&extended_matrix[0][n_loc_c + 2]) - (MPI_Aint)extended_matrix;               recvtypes[1] = cornertype_4;    // upper right corner
-    recvdispls[2] = ((MPI_Aint)&extended_matrix[n_loc_r + 2][0]) - (MPI_Aint)extended_matrix;               recvtypes[2] = cornertype_4;    // lower left corner
-    recvdispls[3] = ((MPI_Aint)&extended_matrix[n_loc_r + 2][n_loc_c + 2]) - (MPI_Aint)extended_matrix;     recvtypes[3] = cornertype_4;    // lower right corner
-    recvdispls[4] = ((MPI_Aint)&extended_matrix[2][0]) - (MPI_Aint)extended_matrix;                         recvtypes[4] = coltype_2_layers;    // upper row
-    recvdispls[5] = ((MPI_Aint)&extended_matrix[2][n_loc_c + 2]) - (MPI_Aint)extended_matrix;               recvtypes[5] = coltype_2_layers;    // lower row
-    recvdispls[6] = ((MPI_Aint)&extended_matrix[0][2]) - (MPI_Aint)extended_matrix;                         recvtypes[6] = rowtype_2_layers;    // left column
-    recvdispls[7] = ((MPI_Aint)&extended_matrix[n_loc_r + 2][2]) - (MPI_Aint)extended_matrix;               recvtypes[7] = rowtype_2_layers;    // right column
-
-
-    // Perform collective communication
-    MPI_Neighbor_alltoallw(
-        current, sendcounts, senddispls, sendtypes,
-        extended_matrix, recvcounts, recvdispls, recvtypes,
-        dist_graph_comm);
-
-    // print extended matrix with rank numbe
-        printf("Rank %d, Extended matrix:\n", rank);
-        print_matrix(extended_r, extended_c, extended_matrix, rank, size);
-
+    // Print the extended matrix for debugging
+    printf("Rank %d, Extended matrix:\n", rank);
+    for (int i = 0; i < extended_r; i++) {
+        for (int j = 0; j < extended_c; j++) {
+            printf("%d ", extended_matrix[i][j]);
+        }
+        printf("\n");
+    }
 
     //==================================================================================
 
