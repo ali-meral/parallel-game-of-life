@@ -223,63 +223,81 @@ void run_collectives(int argc, char *argv[])
 
     // Unpack the received data into the extended matrix
     pos = 0;
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            extended_matrix[i][j] = recvbuf[pos++];
-        }
-    }
-    for (int i = 0; i < 2; i++) {
-        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
-            extended_matrix[i][j] = recvbuf[pos++];
-        }
-    }
-    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
-        for (int j = 0; j < 2; j++) {
-            extended_matrix[i][j] = recvbuf[pos++];
-        }
-    }
+
+    // Fill the corners
+
+    // Lower right
     for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
         for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
             extended_matrix[i][j] = recvbuf[pos++];
         }
     }
-    for (int i = 2; i < n_loc_r + 2; i++) {
+    // Lower left
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
         for (int j = 0; j < 2; j++) {
             extended_matrix[i][j] = recvbuf[pos++];
         }
     }
+        // Upper right
+    for (int i = 0; i < 2; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    // Upper left
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+
+
+
+
+
+
+    // Fill the edges
+    // Lower edge
     for (int i = 2; i < n_loc_r + 2; i++) {
         for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
             extended_matrix[i][j] = recvbuf[pos++];
         }
     }
-    for (int i = 0; i < 2; i++) {
+    // Upper edge
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+
+
+    // Right edge
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
         for (int j = 2; j < n_loc_c + 2; j++) {
             extended_matrix[i][j] = recvbuf[pos++];
         }
     }
-    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+    
+    // Left edge
+    for (int i = 0; i < 2; i++) {
         for (int j = 2; j < n_loc_c + 2; j++) {
             extended_matrix[i][j] = recvbuf[pos++];
         }
     }
 
+
     // Print the extended matrix for debugging
-    printf("Rank %d, Extended matrix:\n", rank);
-    for (int i = 0; i < extended_r; i++) {
-        for (int j = 0; j < extended_c; j++) {
-            printf("%d ", extended_matrix[i][j]);
-        }
-        printf("\n");
-    }
+    // printf("Rank %d, Extended matrix:\n", rank);
+    // for (int i = 0; i < extended_r; i++) {
+    //     for (int j = 0; j < extended_c; j++) {
+    //         printf("%d ", extended_matrix[i][j]);
+    //     }
+    //     printf("\n");
+    // }
 
     //==================================================================================
 
     // Create MPI data type for column communication
-
-    MPI_Datatype col_type;
-    MPI_Type_vector(n_loc_r, 1, n_loc_c, MPI_UINT8_T, &col_type);
-    MPI_Type_commit(&col_type);
 
     // Start timing
     double start_time, end_time, elapsed_time, max_time;
@@ -304,7 +322,7 @@ void run_collectives(int argc, char *argv[])
     // print max time and also time of each process
     if (rank == 0)
     {
-        printf("Parallel Computation time: %f ms\n", max_time * 1000);
+        printf("Collectives Computation time: %f ms\n", max_time * 1000);
     }
 
     // now we need to gather

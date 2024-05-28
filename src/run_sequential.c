@@ -15,8 +15,8 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
 
 
     // print intial matrix if verbose
-    printf("Initial matrix:\n");
-    print_matrix_seq(n, n, matrix);
+    // printf("Initial matrix:\n");
+    // print_matrix_seq(n, n, matrix);
 
     // Time with MPI_Wtime
     double start_time_seq, end_time_seq, elapsed_time_seq;

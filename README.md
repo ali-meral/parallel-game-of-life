@@ -102,6 +102,7 @@ make
 mpirun -np 4 ./main_parallel -n 8 -s 1 -d 30 -i 10 -v -c
 ./main_sequential -n 8 -s 1 -d 30 -i 10 -v
 make run_parallel P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
+make run_collectives P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 make run_sequential N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 ```
 
