@@ -12,6 +12,12 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
 
     srand(seed);
     fill_matrix(n, n, matrix, n, density, 0, 0);
+
+
+    // print intial matrix if verbose
+    printf("Initial matrix:\n");
+    print_matrix_seq(n, n, matrix);
+
     // Time with MPI_Wtime
     double start_time_seq, end_time_seq, elapsed_time_seq;
 
@@ -64,12 +70,6 @@ void main_sequential(int argc, char *argv[])
 
     uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
-    // print intial matrix if verbose
-    if (verbose)
-    {
-        printf("Initial matrix:\n");
-        print_matrix_seq(n, n, final_matrix);
-    }
 
     // Time with MPI_Wtime
     run_sequential_simulation(n, seed, density, iterations, final_matrix);
