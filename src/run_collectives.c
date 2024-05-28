@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <getopt.h>
 
+int c(int x, int y, int rows) {
+    return y * rows + x;
+}
+
+
 void run_collectives(int argc, char *argv[])
 {
     int rank, size;         // rank and size of MPI communicator
@@ -103,6 +108,24 @@ void run_collectives(int argc, char *argv[])
         print_matrix(n_loc_r, n_loc_c, current, rank, size);
     }
 
+    // Prepate the extended matrix by copying the current matrix in its center. Rest should be 0
+
+    for (int i = 0; i < extended_r; i++)
+    {
+        for (int j = 0; j < extended_c; j++)
+        {
+            if (i >= 2 && i < n_loc_r + 2 && j >= 2 && j < n_loc_c + 2)
+            {
+                extended_matrix[i][j] = current[i - 2][j - 2];
+            }
+            else
+            {
+                extended_matrix[i][j] = 0;
+            }
+        }
+    }
+
+
     // COLLECTIVE ======================================================================
 
     printf("Rank %d, Coordinates: (%d, %d)\n", rank, coords[0], coords[1]);
@@ -119,9 +142,6 @@ void run_collectives(int argc, char *argv[])
     // Create datatype for corner (1 element)
     MPI_Type_contiguous(1, MPI_UINT8_T, &cornertype);
     MPI_Type_commit(&cornertype);
-
-    // Debug print
-    printf("Rank %d created MPI datatypes.\n", rank);
 
     int neighbors[8]; // Store ranks of neighbors
     int upper_left_coords[2], upper_right_coords[2], lower_left_coords[2], lower_right_coords[2];
@@ -150,16 +170,15 @@ void run_collectives(int argc, char *argv[])
     MPI_Cart_shift(cartcomm, 0, 1, &neighbors[6], &neighbors[7]); // up-down
 
     // Debug print
-    printf("Rank %d neighbors: UL=%d UR=%d LL=%d LR=%d L=%d R=%d U=%d D=%d\n", rank,
-           neighbors[0], neighbors[1], neighbors[2], neighbors[3],
-           neighbors[4], neighbors[5], neighbors[6], neighbors[7]);
+    // for (int i = 0; i < 8; i++) {
+    //     printf("Rank %d neighbor[%d]=%d\n", rank, i, neighbors[i]);
+    // }
+
+
 
     // Create distributed graph communicator
     MPI_Comm dist_graph_comm;
     MPI_Dist_graph_create_adjacent(cartcomm, 8, neighbors, MPI_UNWEIGHTED, 8, neighbors, MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &dist_graph_comm);
-
-    // Debug print
-    printf("Rank %d created distributed graph communicator.\n", rank);
 
 // Set up communication buffers
 int sendcounts[8], recvcounts[8];
@@ -169,45 +188,125 @@ MPI_Datatype sendtypes[8], recvtypes[8];
 // Initialize sendcounts and recvcounts
 for (int i = 0; i < 8; i++) {
     sendcounts[i] = recvcounts[i] = 1;
-    printf("Rank %d, init sendcounts[%d]=%d, recvcounts[%d]=%d\n", rank, i, sendcounts[i], i, recvcounts[i]);
 }
 
-// Calculate and set send displacements
-// senddispls is the displacement of the first element of the data to be sent
-// sendtypes is the datatype of the data to be sent
-senddispls[0] = (MPI_Aint)(&extended_matrix[1][1]) - (MPI_Aint)extended_matrix;
+// Calculate and set send displacements using the current matrix
+senddispls[0] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current; 
 sendtypes[0] = cornertype;
-printf("Rank %d, senddispls[0]=%ld, sendtypes[0]=%d (UL)\n", rank, senddispls[0], sendtypes[0]);
 
-senddispls[1] = (MPI_Aint)(&extended_matrix[1][n_loc_c + 1]) - (MPI_Aint)extended_matrix;
+senddispls[1] = ((MPI_Aint)&current[0][n_loc_c - 1]) - (MPI_Aint)current; 
 sendtypes[1] = cornertype;
-printf("Rank %d, senddispls[1]=%ld, sendtypes[1]=%d (UR)\n", rank, senddispls[1], sendtypes[1]);
 
-senddispls[2] = (MPI_Aint)(&extended_matrix[n_loc_r + 1][1]) - (MPI_Aint)extended_matrix;
+senddispls[2] = ((MPI_Aint)&current[n_loc_r - 1][0]) - (MPI_Aint)current; 
 sendtypes[2] = cornertype;
-printf("Rank %d, senddispls[2]=%ld, sendtypes[2]=%d (LL)\n", rank, senddispls[2], sendtypes[2]);
 
-senddispls[3] = (MPI_Aint)(&extended_matrix[n_loc_r + 1][n_loc_c + 1]) - (MPI_Aint)extended_matrix;
+senddispls[3] = ((MPI_Aint)&current[n_loc_r - 1][n_loc_c - 1]) - (MPI_Aint)current; 
 sendtypes[3] = cornertype;
-printf("Rank %d, senddispls[3]=%ld, sendtypes[3]=%d (LR)\n", rank, senddispls[3], sendtypes[3]);
 
-senddispls[4] = (MPI_Aint)(&extended_matrix[1][0]) - (MPI_Aint)extended_matrix;
+senddispls[4] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current; 
 sendtypes[4] = coltype;
-printf("Rank %d, senddispls[4]=%ld, sendtypes[4]=%d (Left)\n", rank, senddispls[4], sendtypes[4]);
 
-senddispls[5] = (MPI_Aint)(&extended_matrix[1][n_loc_c + 2]) - (MPI_Aint)extended_matrix;
+senddispls[5] = ((MPI_Aint)&current[0][n_loc_c - 1]) - (MPI_Aint)current; 
 sendtypes[5] = coltype;
-printf("Rank %d, senddispls[5]=%ld, sendtypes[5]=%d (Right)\n", rank, senddispls[5], sendtypes[5]);
 
-senddispls[6] = (MPI_Aint)(&extended_matrix[0][1]) - (MPI_Aint)extended_matrix;
+senddispls[6] = ((MPI_Aint)&current[0][0]) - (MPI_Aint)current; 
 sendtypes[6] = rowtype;
-printf("Rank %d, senddispls[6]=%ld, sendtypes[6]=%d (Up)\n", rank, senddispls[6], sendtypes[6]);
 
-senddispls[7] = (MPI_Aint)(&extended_matrix[n_loc_r + 2][1]) - (MPI_Aint)extended_matrix;
+senddispls[7] = ((MPI_Aint)&current[n_loc_r - 1][0]) - (MPI_Aint)current; 
 sendtypes[7] = rowtype;
-printf("Rank %d, senddispls[7]=%ld, sendtypes[7]=%d (Down)\n", rank, senddispls[7], sendtypes[7]);
+
+// Set the receive displacements using the extended matrix
+recvdispls[0] = ((MPI_Aint)&extended_matrix[0][0]) - (MPI_Aint)extended_matrix; 
+recvtypes[0] = cornertype;
+
+recvdispls[1] = ((MPI_Aint)&extended_matrix[0][n_loc_c + 1]) - (MPI_Aint)extended_matrix; 
+recvtypes[1] = cornertype;
+
+recvdispls[2] = ((MPI_Aint)&extended_matrix[n_loc_r + 1][0]) - (MPI_Aint)extended_matrix; 
+recvtypes[2] = cornertype;
+
+recvdispls[3] = ((MPI_Aint)&extended_matrix[n_loc_r + 1][n_loc_c + 1]) - (MPI_Aint)extended_matrix; 
+recvtypes[3] = cornertype;
+
+recvdispls[4] = ((MPI_Aint)&extended_matrix[1][0]) - (MPI_Aint)extended_matrix; 
+recvtypes[4] = coltype;
+
+recvdispls[5] = ((MPI_Aint)&extended_matrix[1][n_loc_c + 1]) - (MPI_Aint)extended_matrix; 
+recvtypes[5] = coltype;
+
+recvdispls[6] = ((MPI_Aint)&extended_matrix[0][1]) - (MPI_Aint)extended_matrix; 
+recvtypes[6] = rowtype;
+
+recvdispls[7] = ((MPI_Aint)&extended_matrix[n_loc_r + 2][1]) - (MPI_Aint)extended_matrix; 
+recvtypes[7] = rowtype;
+
+// Debug print to verify the buffers
+for (int i = 0; i < 8; i++) {
+    printf("Rank %d, senddispls[%d]=%ld, type=", rank, i, senddispls[i]);
+    if (sendtypes[i] == cornertype) {
+        printf("cornertype, Value: %d\n", *(uint8_t*)((MPI_Aint)current + senddispls[i]));
+    } else if (sendtypes[i] == coltype) {
+        printf("coltype, Values: ");
+        for (int j = 0; j < n_loc_r; j++) {
+            printf("%d ", current[j][senddispls[i] / sizeof(uint8_t)]);
+        }
+        printf("\n");
+    } else if (sendtypes[i] == rowtype) {
+        int row_index = senddispls[i] / (n_loc_c * sizeof(uint8_t));
+        printf("rowtype, Values: ");
+        for (int j = 0; j < n_loc_c; j++) {
+            printf("%d ", current[row_index][j]);
+        }
+        printf("\n");
+    }
+}
+
+// Call MPI_Neighbor_alltoallw
+MPI_Neighbor_alltoallw(&extended_matrix[0][0], sendcounts, senddispls, sendtypes,
+                       &extended_matrix[0][0], recvcounts, recvdispls, recvtypes,
+                       dist_graph_comm);
 
 
+// Print the values to be sent
+// printf("Rank %d, Sending values:\n", rank);
+// for (int i = 0; i < 8; i++) {
+//     printf("senddispls[%d]=%ld, type=", i, senddispls[i]);
+//     if (sendtypes[i] == cornertype) {
+//         printf("cornertype, Value: %d\n", *(uint8_t*)((MPI_Aint)extended_matrix + senddispls[i]));
+//     } else if (sendtypes[i] == coltype) {
+//         printf("coltype, Values: ");
+//         for (int j = 0; j < n_loc_r; j++) {
+//             printf("%d ", extended_matrix[j + 1][senddispls[i] / sizeof(uint8_t) % extended_c]);
+//         }
+//         printf("\n");
+//     } else if (sendtypes[i] == rowtype) {
+//         printf("rowtype, Values: ");
+//         for (int j = 0; j < n_loc_c; j++) {
+//             printf("%d ", extended_matrix[senddispls[i] / sizeof(uint8_t) / extended_c][j + 1]);
+//         }
+//         printf("\n");
+//     }
+// }
+
+
+
+
+// print extended matrix for each process
+// block until all processes have reached this point
+MPI_Barrier(cartcomm);
+// debug prints
+for (int r = 0; r < size; r++) {
+    if (rank == r) {
+        printf("Rank %d\n", rank);
+        for (int i = 0; i < extended_r; i++) {
+            for (int j = 0; j < extended_c; j++) {
+                printf("%d ", extended_matrix[i][j]);
+            }
+            printf("\n");
+        }
+    }
+    MPI_Barrier(cartcomm);
+}
 
     //==================================================================================
 

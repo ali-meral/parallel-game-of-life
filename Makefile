@@ -1,9 +1,9 @@
 # Default parameters, these can be overridden at runtime
 P ?= 4
-N ?= 1000
-SEED ?= 2
-DENSITY ?= 20
-ITERATIONS ?= 10
+N ?= 8
+SEED ?= 1
+DENSITY ?= 30
+ITERATIONS ?= 1
 REPS ?= 1
 VERIFY ?= 1
 VERBOSE ?= 0
