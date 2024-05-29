@@ -228,3 +228,146 @@ void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_off
         MPI_Send(&(current[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
     }
 }
+
+void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
+{
+    int coords[2], dims[2], periods[2], neighbors[8];
+    MPI_Cart_get(cartcomm, 2, dims, periods, coords);
+
+    // relative positions of the 8 neighbors
+    int rel_pos[8][2] = {
+        {-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}};
+
+    // get coordinates and ranks of the 8 neighbors
+    for (int i = 0; i < 8; i++)
+    {
+        int neighbor_coords[2] = {(coords[0] + rel_pos[i][0] + dims[0]) % dims[0], (coords[1] + rel_pos[i][1] + dims[1]) % dims[1]};
+        MPI_Cart_rank(cartcomm, neighbor_coords, &neighbors[i]);
+    }
+
+    MPI_Comm dist_graph_comm;
+    MPI_Dist_graph_create_adjacent(cartcomm, 8, neighbors, MPI_UNWEIGHTED, 8, neighbors, MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &dist_graph_comm);
+
+    int total_send_size = 4 * 4 + 2 * 2 * n_loc_r + 2 * 2 * n_loc_c;
+    int total_recv_size = total_send_size;
+
+    uint8_t *sendbuf = (uint8_t *)malloc(total_send_size * sizeof(uint8_t));
+    uint8_t *recvbuf = (uint8_t *)malloc(total_recv_size * sizeof(uint8_t));
+
+    int sendcounts[8], recvcounts[8];
+    int senddispls[8], recvdispls[8];
+
+    int pos = 0;
+    // Top-left corner
+    senddispls[0] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Top-right corner
+    senddispls[1] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Bottom-left corner
+    senddispls[2] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Bottom-right corner
+    senddispls[3] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Left edge
+    senddispls[4] = pos;
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < 2; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Right edge
+    senddispls[5] = pos;
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = n_loc_c - 2; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Top edge
+    senddispls[6] = pos;
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+    // Bottom edge
+    senddispls[7] = pos;
+    for (int i = n_loc_r - 2; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            sendbuf[pos++] = current[i][j];
+        }
+    }
+
+    for (int i = 0; i < 8; i++) {
+        sendcounts[i] = recvcounts[i] = (i < 4) ? 4 : ((i < 6) ? n_loc_r * 2 : n_loc_c * 2);
+        recvdispls[i] = senddispls[i];
+    }
+
+    MPI_Neighbor_alltoallv(sendbuf, sendcounts, senddispls, MPI_UINT8_T, recvbuf, recvcounts, recvdispls, MPI_UINT8_T, dist_graph_comm);
+
+    pos = 0;
+
+    // Fill the corners
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+
+    // Fill the edges
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = n_loc_c + 2; j < n_loc_c + 4; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 2; i < n_loc_r + 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = n_loc_r + 2; i < n_loc_r + 4; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = 2; j < n_loc_c + 2; j++) {
+            extended_matrix[i][j] = recvbuf[pos++];
+        }
+    }
+
+    free(sendbuf);
+    free(recvbuf);
+}
