@@ -128,3 +128,8 @@ void update_matrix_mpi(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_lo
   }
 }
 
+void fill_matrices(int r, int c, int n, int density, int seed, int m_offset_r, int m_offset_c, uint8_t (*current)[c])
+{
+    srand(seed);
+    fill_matrix(r, c, current, n, density, m_offset_r, m_offset_c);
+}

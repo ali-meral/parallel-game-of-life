@@ -12,15 +12,15 @@ VERBOSE ?= 0
 all: main_parallel main_sequential main_collectives
 
 # Parallel target
-main_parallel: main_parallel.o run_parallel.o run_sequential.o matrix_operations.o utilities.o mpi_communication.o
+main_parallel: main_parallel.o run_parallel.o  matrix_operations.o utilities.o mpi_communication.o
 	mpicc -Wall -I./include -o $@ $^
 
 # Collective target
-main_collectives: main_collectives.o run_collectives.o run_sequential.o matrix_operations.o utilities.o mpi_communication.o
+main_collectives: main_collectives.o run_parallel.o matrix_operations.o utilities.o mpi_communication.o
 	mpicc -Wall -I./include -o $@ $^
 
 # Sequential target
-main_sequential: main_sequential.o run_sequential.o matrix_operations.o utilities.o
+main_sequential: main_sequential.o run_parallel.o matrix_operations.o utilities.o mpi_communication.o
 	mpicc -Wall -I./include -o $@ $^
 
 # Compile main_parallel.c
@@ -37,10 +37,6 @@ main_sequential.o: src/main_sequential.c
 
 # Compile run_parallel.c
 run_parallel.o: src/run_parallel.c
-	mpicc -Wall -I./include -c $< -o $@
-
-# Compile run_collectives.c
-run_collectives.o: src/run_collectives.c
 	mpicc -Wall -I./include -c $< -o $@
 
 # Compile run_sequential.c

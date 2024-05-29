@@ -1,5 +1,5 @@
 #include "matrix_operations.h"
-#include "run_collectives.h"
+#include "run_parallel.h"
 #include "mpi_communication.h"
 #include "utilities.h"
 #include <mpi.h>

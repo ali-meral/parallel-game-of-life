@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+
 void exchange_boundaries(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
 {
     MPI_Status status;
@@ -185,4 +186,45 @@ void exchange_boundaries(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], 
     free(recv_top_right);
     free(send_bottom_right);
     free(recv_top_left);
+}
+
+void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_offset_r, int m_offset_c,
+                  uint8_t (*current)[n_loc_c], uint8_t (*global_matrix_par)[n], MPI_Comm cartcomm,
+                  int verbose, int iterations)
+{
+    if (rank == 0)
+    {
+        for (int i = 0; i < n_loc_r; ++i)
+        {
+            for (int j = 0; j < n_loc_c; ++j)
+            {
+                global_matrix_par[m_offset_r + i][m_offset_c + j] = current[i][j];
+            }
+        }
+
+        for (int r = 1; r < size; ++r)
+        {
+            uint8_t *recv_buffer = (uint8_t *)malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
+            MPI_Recv(recv_buffer, n_loc_r * n_loc_c, MPI_UINT8_T, r, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            int coords[2];
+            MPI_Cart_coords(cartcomm, r, 2, coords);
+            int recv_offset_r = coords[0] * n_loc_r;
+            int recv_offset_c = coords[1] * n_loc_c;
+
+            for (int i = 0; i < n_loc_r; ++i)
+            {
+                for (int j = 0; j < n_loc_c; ++j)
+                {
+                    global_matrix_par[recv_offset_r + i][recv_offset_c + j] = recv_buffer[i * n_loc_c + j];
+                }
+            }
+            free(recv_buffer);
+        }
+
+    }
+    else
+    {
+        MPI_Send(&(current[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
+    }
 }
