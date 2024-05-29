@@ -85,6 +85,27 @@ void run_parallel(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Dims_create(size, 2, dims);
+
+    // Dimensions for scaling experiments
+    if (size == 32) {
+        dims[0] = 1;
+        dims[1] = 32;
+    } else if (size == 256) {
+        dims[0] = 8;
+        dims[1] = 32;
+    } else if (size == 512) {
+        dims[0] = 16;
+        dims[1] = 32;
+    } else if (size == 1024) {
+        dims[0] = 32;
+        dims[1] = 32;
+    }
+    else if (size == 6) {
+        dims[0] = 1;
+        dims[1] = 6;
+    }
+
+
     if (verbose == 1 && rank == 0)
     {
         printf("n: %d\n", n);
