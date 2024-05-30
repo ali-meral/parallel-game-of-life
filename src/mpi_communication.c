@@ -8,7 +8,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
 {
     int extended_r = n_loc_r + 4, extended_c = n_loc_c + 4;
 
-    // Initialize the extended matrix with zeros
+    // initialize extended with zeros
     for (int i = 0; i < extended_r; i++)
     {
         for (int j = 0; j < extended_c; j++)
@@ -17,7 +17,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
         }
     }
 
-    // Copy the matrix matrix to the center of the extended matrix
+    // copy original matrix into center
     for (int i = 2; i < n_loc_r + 2; i++)
     {
         for (int j = 2; j < n_loc_c + 2; j++)

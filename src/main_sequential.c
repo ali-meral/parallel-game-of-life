@@ -15,13 +15,14 @@ void main_sequential(int argc, char *argv[])
     int iterations = 3;
 
     // Parse command-line arguments
-    // NULL because we don't need to verify
     parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, NULL);
 
     uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
-    // Time with MPI_Wtime
-    run_sequential_simulation(n, seed, density, iterations, final_matrix);
+    // time variable that run sequential simulation function will modify
+    // to store the time it took to run the simulation
+    double seq_time;
+    run_sequential_simulation(n, seed, density, iterations, final_matrix, &seq_time);
 
     // print final matrix if verbose
     if (verbose)
@@ -34,7 +35,8 @@ void main_sequential(int argc, char *argv[])
     int alive = 0;
     int dead = 0;
     count_cells(n, n, final_matrix, &alive, &dead);
-    printf("alive: %d, dead: %d\n", alive, dead);
+    printf("%d\t%d\t%d\t%d\tsequential\t%lf\t%d\t%d\n", n, seed, density, iterations, seq_time, alive, dead);
+
 
     free(final_matrix);
 }

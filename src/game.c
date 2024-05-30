@@ -52,16 +52,14 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
         params->dims[0] = 32;
         params->dims[1] = 32;
         break;
-    case 6:
-        params->dims[0] = 1;
-        params->dims[1] = 6;
-        break;
     }
 
-    if (params->verbose && params->rank == 0)
+    if (params->rank == 0)
     {
-        printf("n: %d\ns: %d\nDimensions created: [%d, %d]\n", params->n, params->seed, params->dims[0], params->dims[1]);
+        // print parameters grid size, seed, local grid size and dimensions in both directions
+        printf("%d\t%d\t%d\t%d\t%d\t%d\t", params->n, params->seed, params->density, params->iterations, params->dims[0], params->dims[1]);
     }
+
 
     MPI_Cart_create(MPI_COMM_WORLD, 2, params->dims, params->pers, reorder, &params->cartcomm);
     MPI_Cart_coords(params->cartcomm, params->rank, 2, params->coords);
@@ -137,7 +135,8 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
 
     if (params->rank == 0)
     {
-        printf("%s Computation time: %f ms\n", computation_label, max_time * 1000);
+        // computation method and time
+        printf("%s\t%f", computation_label, max_time * 1000);
     }
 
     gather_ranks(params->n_loc_r,                   // number of local rows
@@ -164,14 +163,15 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
     {
         int local_alive = 0, local_dead = 0;
         count_cells(params->n, params->n, global_matrix_par, &local_alive, &local_dead);
-        printf("alive: %d, dead: %d\n", local_alive, local_dead);
+        printf("\t%d\t%d\n", local_alive, local_dead);
     }
 
     // check if matrices match (sequential vs parallel)
+    double elapsed_time_seq;
     if (params->verify && params->rank == 0)
     {
         uint8_t(*final_matrix)[params->n] = malloc(params->n * params->n * sizeof(uint8_t));
-        run_sequential_simulation(params->n, params->seed, params->density, params->iterations, final_matrix);
+        run_sequential_simulation(params->n, params->seed, params->density, params->iterations, final_matrix, &elapsed_time_seq);
         int result = matrices_are_equal(params->n, final_matrix, global_matrix_par);
         printf("Matrices %s.\n", result ? "match" : "do not match");
         free(final_matrix);
@@ -187,11 +187,11 @@ void run_collectives(int argc, char *argv[])
 {
     SimulationParams params;
     initialize(argc, argv, &params, 0);
-    run_simulation(&params, collectives_communicate, "Collectives");
+    run_simulation(&params, collectives_communicate, "collectives");
     MPI_Finalize();
 }
 
-void run_parallel(int argc, char *argv[])
+void run_sendrecv(int argc, char *argv[])
 {
     SimulationParams params;
     initialize(argc, argv, &params, 0);
@@ -200,13 +200,13 @@ void run_parallel(int argc, char *argv[])
     MPI_Type_vector(params.n_loc_r, 1, params.n_loc_c, MPI_UINT8_T, &col_type);
     MPI_Type_commit(&col_type);
 
-    run_simulation(&params, sendrecv_communicate, "Parallel");
+    run_simulation(&params, sendrecv_communicate, "sendrecv");
 
     MPI_Type_free(&col_type);
     MPI_Finalize();
 }
 
-void run_sequential_simulation(int n, int seed, int density, int iterations, uint8_t (*final_matrix)[n])
+void run_sequential_simulation(int n, int seed, int density, int iterations, uint8_t (*final_matrix)[n], double *time)
 {
     uint8_t(*matrix)[n] = malloc(n * n * sizeof(uint8_t));
     uint8_t(*next_matrix)[n] = malloc(n * n * sizeof(uint8_t));
@@ -228,11 +228,13 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
     }
 
     double end_time_seq = MPI_Wtime();
-    printf("Sequential Computation time: %f ms\n", (end_time_seq - start_time_seq) * 1000);
+
+    *time = end_time_seq - start_time_seq;
 
     for (int i = 0; i < n; i++)
     {
         for (int j = 0; j < n; j++)
+
         {
             final_matrix[i][j] = matrix[i][j];
         }

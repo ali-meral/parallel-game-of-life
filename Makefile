@@ -1,51 +1,52 @@
 # input parameters
 P ?= 4
-N ?= 8
+N ?= 100
 SEED ?= 1
 DENSITY ?= 30
-ITERATIONS ?= 2
-REPS ?= 1
+ITERATIONS ?= 10
+REPS ?= 10
 VERIFY ?= 1
 VERBOSE ?= 0
+
+# Compiler and flags
+MPICC = mpicc
+CFLAGS = -I./include -w  # Add -w to suppress all warnings
 
 # object files
 OBJS = game.o matrix_operations.o utilities.o mpi_communication.o
 
 # targets
-all: main_parallel main_sequential main_collectives
+all: main_sendrecv main_sequential main_collectives
 
 # linkings
 %: %.o $(OBJS)
-	mpicc -I./include -o $@ $^
+	$(MPICC) $(CFLAGS) -o $@ $^
 
 # Compilation pattern rule
 %.o: src/%.c
-	mpicc -I./include -c $< -o $@
+	$(MPICC) $(CFLAGS) -c $< -o $@
 
 # Rules
-run_parallel: main_parallel
-	@echo "SendRecv running $(REPS) times:"
-	@echo "P: $(P), Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
+run_sendrecv: main_sendrecv
+	@echo "reps\tnp\tn\tseed\tdensity\titers\tdimx\tdimy\timplementation\ttime (ms)\talive\tdead"
 	@for i in $$(seq 1 $(REPS)); do \
-		echo "Repetition $$i:"; \
-		mpirun -np $(P) ./main_parallel -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
+		echo -n "$$i\t$(P)\t"; \
+		mpirun -np $(P) ./main_sendrecv -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
 	done
 
 run_collectives: main_collectives
-	@echo "Collectives running $(REPS) times:"
-	@echo "P: $(P) , Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
+	@echo "reps\tnp\tn\tseed\tdensity\titers\tdimx\tdimy\timplementation\ttime (ms)\talive\tdead"
 	@for i in $$(seq 1 $(REPS)); do \
-		echo "Repetition $$i:"; \
+		echo -n "$$i\t$(P)\t"; \
 		mpirun -np $(P) ./main_collectives -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
 	done
 
 run_sequential: main_sequential
-	@echo "Sequential running $(REPS) times:"
-	@echo "Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
+	@echo "reps\tn\tseed\tdensity\titers\timplementation\ttime (ms)\talive\tdead"
 	@for i in $$(seq 1 $(REPS)); do \
-		echo "Repetition $$i:"; \
-		./main_sequential -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS) -v $(VERBOSE); \
+		echo -n "$$i\t"; \
+		./main_sequential -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS) $(VERBOSE); \
 	done
 
 clean:
-	rm -f main_parallel main_collectives main_sequential *.o
+	rm -f main_sendrecv main_collectives main_sequential *.o
