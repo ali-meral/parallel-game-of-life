@@ -23,13 +23,13 @@ make clean
 To run the parallel program, use the following command:
 
 ```sh
-mpirun -np <number_of_processes> ./bin/main_parallel -n <grid_size> -s <seed> -d <density> -i <iterations> [-v] [-c]
+mpirun -np <number_of_processes> ./bin/main_sendrecv -n <grid_size> -s <seed> -d <density> -i <iterations> [-v] [-c]
 ```
 
 Example:
 
 ```sh
-mpirun -np 4 ./bin/main_parallel -n 1000 -s 2 -d 20 -i 10 -v -c
+mpirun -np 4 ./bin/main_sendrecv -n 1000 -s 2 -d 20 -i 10 -v -c
 ```
 
 - `-np <number_of_processes>`: Number of processes (e.g., 4)
@@ -63,16 +63,16 @@ Example:
 
 #### Repeated Runs
 
-To run the parallel program multiple times with customizable parameters, use the `make run_parallel` target:
+To run the parallel program multiple times with customizable parameters, use the `make run_sendrecv` target:
 
 ```sh
-make run_parallel P=<number_of_processes> N=<grid_size> SEED=<seed> DENSITY=<density> ITERATIONS=<iterations> REPS=<repetitions>
+make run_sendrecv P=<number_of_processes> N=<grid_size> SEED=<seed> DENSITY=<density> ITERATIONS=<iterations> REPS=<repetitions>
 ```
 
 Example:
 
 ```sh
-make run_parallel P=4 N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
+make run_sendrecv P=4 N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
 ```
 
 To run the sequential program multiple times with customizable parameters, use the `make run_sequential` target:
@@ -99,10 +99,10 @@ make run_sequential N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
 ```sh
 make clean
 make
-mpirun -np 4 ./main_parallel -n 8 -s 1 -d 30 -i 10 -v -c
+mpirun -np 4 ./main_sendrecv -n 8 -s 1 -d 30 -i 10 -v -c
 mpirun -np 4 ./main_collectives -n 8 -s 1 -d 30 -i 10 -v -c
 ./main_sequential -n 8 -s 1 -d 30 -i 10 -v
-make run_parallel P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
+make run_sendrecv P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 make run_collectives P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 make run_sequential N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 ```

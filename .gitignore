@@ -2,4 +2,4 @@
 *.o
 trash/
 *.txt
-main
+main*
