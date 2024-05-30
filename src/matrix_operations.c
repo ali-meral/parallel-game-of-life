@@ -20,72 +20,6 @@ int compare_matrices(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n])
     return 1; // Matrices are equal
 }
 
-void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, int density, int m_offset_r, int m_offset_c)
-{
-  for (int i = 0; i < n; i++)
-  {
-    for (int j = 0; j < n; j++)
-    {
-      int r = rand() % 100;
-      if (r < density)
-      {
-        r = 1;
-      }
-      else
-      {
-        r = 0;
-      }
-
-      if (i >= m_offset_r && i < m_offset_r + n_loc_r &&
-          j >= m_offset_c && j < m_offset_c + n_loc_c)
-      {
-        matrix[i - m_offset_r][j - m_offset_c] = r;
-      }
-    }
-  }
-}
-
-void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank, int size)
-{
-  for (int i = 0; i < size; i++)
-  {
-    if (rank == i)
-    {
-      for (int i = 0; i < n_loc_r; i++)
-      {
-        for (int j = 0; j < n_loc_c; j++)
-        {
-          printf("%d ", matrix[i][j]);
-        }
-        printf("\n");
-      }
-    }
-    fflush(stdout);
-  }
-}
-
-void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c])
-{
-  for (int i = 2; i < n_loc_r + 2; i++)
-  {
-    for (int j = 2; j < n_loc_c + 2; j++)
-    {
-      int neighbors =
-          extended_matrix[i - 2][j - 2] +
-          extended_matrix[i - 1][j] +
-          extended_matrix[i - 1][j + 1] +
-          extended_matrix[i][j - 2] +
-          extended_matrix[i][j + 1] +
-          extended_matrix[i + 2][j - 2] +
-          extended_matrix[i + 2][j] +
-          extended_matrix[i + 2][j + 2];
-
-      next[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended_matrix[i][j]));
-    }
-  }
-}
-
-
 void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended)[n_loc_c + 4]) {
     // Fill the center of the extended grid with the original grid
     for (int i = 0; i < n_loc_r; i++) {
@@ -130,4 +64,82 @@ void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], u
     extended[n_loc_r + 3][1] = current[1][n_loc_c - 1];
     extended[n_loc_r + 3][n_loc_c + 2] = current[1][0];
     extended[n_loc_r + 3][n_loc_c + 3] = current[1][1];
+}
+
+
+void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, int density, int m_offset_r, int m_offset_c)
+{
+  for (int i = 0; i < n; i++)
+  {
+    for (int j = 0; j < n; j++)
+    {
+      int r = rand() % 100;
+      if (r < density)
+      {
+        r = 1;
+      }
+      else
+      {
+        r = 0;
+      }
+
+      if (i >= m_offset_r && i < m_offset_r + n_loc_r &&
+          j >= m_offset_c && j < m_offset_c + n_loc_c)
+      {
+        matrix[i - m_offset_r][j - m_offset_c] = r;
+      }
+    }
+  }
+}
+
+
+
+void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank, int size)
+{
+  for (int i = 0; i < size; i++)
+  {
+    if (rank == i)
+    {
+      for (int i = 0; i < n_loc_r; i++)
+      {
+        for (int j = 0; j < n_loc_c; j++)
+        {
+          printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+      }
+    }
+    fflush(stdout);
+  }
+}
+
+void print_matrix_seq(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c]) {
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    fflush(stdout);
+}
+
+void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c])
+{
+  for (int i = 2; i < n_loc_r + 2; i++)
+  {
+    for (int j = 2; j < n_loc_c + 2; j++)
+    {
+      int neighbors =
+          extended_matrix[i - 2][j - 2] +
+          extended_matrix[i - 1][j] +
+          extended_matrix[i - 1][j + 1] +
+          extended_matrix[i][j - 2] +
+          extended_matrix[i][j + 1] +
+          extended_matrix[i + 2][j - 2] +
+          extended_matrix[i + 2][j] +
+          extended_matrix[i + 2][j + 2];
+
+      next[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended_matrix[i][j]));
+    }
+  }
 }
