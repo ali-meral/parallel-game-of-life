@@ -2,7 +2,23 @@
 #include "utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+
+int compare_matrices(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n])
+{
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+
+            if (matrix1[i][j] != matrix2[i][j])
+            {
+                printf("matrix1[%d][%d] = %d, matrix2[%d][%d] = %d\n", i, j, matrix1[i][j], i, j, matrix2[i][j]);
+                return 0; // Matrices are not equal
+            }
+        }
+    }
+    return 1; // Matrices are equal
+}
 
 void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, int density, int m_offset_r, int m_offset_c)
 {
@@ -48,66 +64,7 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
   }
 }
 
-void print_matrix_seq(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c]) {
-    for (int i = 0; i < n_loc_r; i++) {
-        for (int j = 0; j < n_loc_c; j++) {
-            printf("%d ", matrix[i][j]);
-        }
-        printf("\n");
-    }
-    fflush(stdout);
-}
-
-int wrap(int idx, int limit)
-{
-  return idx + limit * (idx < 0) - limit * (idx >= limit);
-}
-void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*next)[n_loc_c])
-{
-  for (int i = 0; i < n_loc_r; i++)
-  {
-    for (int j = 0; j < n_loc_c; j++)
-    {
-      // precompute indices
-      int im2 = wrap(i - 2, n_loc_r);
-      int im1 = wrap(i - 1, n_loc_r);
-      int ip2 = wrap(i + 2, n_loc_r);
-      int jm2 = wrap(j - 2, n_loc_c);
-      int jp1 = wrap(j + 1, n_loc_c);
-      int jp2 = wrap(j + 2, n_loc_c);
-
-      // calculate alive neighbors
-      int neighbors =
-          current[im2][jm2] + // C[i ⊖ 2][j ⊖ 2]
-          current[im1][j] +   // C[i ⊖ 1][j]
-          current[im1][jp1] + // C[i ⊖ 1][j ⊕ 1]
-          current[i][jm2] +   // C[i][j ⊖ 2]
-          current[i][jp1] +   // C[i][j ⊕ 1]
-          current[ip2][jm2] + // C[i ⊕ 2][j ⊖ 2]
-          current[ip2][j] +   // C[i ⊕ 2][j]
-          current[ip2][jp2];  // C[i ⊕ 2][j ⊕ 2]
-
-      // determine who lives and who dies
-      next[i][j] = (neighbors == 3 || (neighbors == 2 && current[i][j]));
-    }
-  }
-}
-
-void print_matrix_debug(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank, const char *matrix_name)
-{
-  printf("Rank %d - %s:\n", rank, matrix_name);
-  for (int i = 0; i < n_loc_r; i++)
-  {
-    for (int j = 0; j < n_loc_c; j++)
-    {
-      printf("%d ", matrix[i][j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-void update_matrix_mpi(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c])
+void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c])
 {
   for (int i = 2; i < n_loc_r + 2; i++)
   {
@@ -128,8 +85,49 @@ void update_matrix_mpi(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_lo
   }
 }
 
-void fill_matrices(int r, int c, int n, int density, int seed, int m_offset_r, int m_offset_c, uint8_t (*current)[c])
-{
-    srand(seed);
-    fill_matrix(r, c, current, n, density, m_offset_r, m_offset_c);
+
+void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended)[n_loc_c + 4]) {
+    // Fill the center of the extended grid with the original grid
+    for (int i = 0; i < n_loc_r; i++) {
+        for (int j = 0; j < n_loc_c; j++) {
+            extended[i + 2][j + 2] = current[i][j];
+        }
+    }
+
+    // Fill the wrap-around rows
+    for (int j = 0; j < n_loc_c; j++) {
+        extended[0][j + 2] = current[n_loc_r - 2][j];
+        extended[1][j + 2] = current[n_loc_r - 1][j];
+        extended[n_loc_r + 2][j + 2] = current[0][j];
+        extended[n_loc_r + 3][j + 2] = current[1][j];
+    }
+
+    // Fill the wrap-around columns
+    for (int i = 0; i < n_loc_r; i++) {
+        extended[i + 2][0] = current[i][n_loc_c - 2];
+        extended[i + 2][1] = current[i][n_loc_c - 1];
+        extended[i + 2][n_loc_c + 2] = current[i][0];
+        extended[i + 2][n_loc_c + 3] = current[i][1];
+    }
+
+    // Fill the corners
+    extended[0][0] = current[n_loc_r - 2][n_loc_c - 2];
+    extended[0][1] = current[n_loc_r - 2][n_loc_c - 1];
+    extended[0][n_loc_c + 2] = current[n_loc_r - 2][0];
+    extended[0][n_loc_c + 3] = current[n_loc_r - 2][1];
+    
+    extended[1][0] = current[n_loc_r - 1][n_loc_c - 2];
+    extended[1][1] = current[n_loc_r - 1][n_loc_c - 1];
+    extended[1][n_loc_c + 2] = current[n_loc_r - 1][0];
+    extended[1][n_loc_c + 3] = current[n_loc_r - 1][1];
+    
+    extended[n_loc_r + 2][0] = current[0][n_loc_c - 2];
+    extended[n_loc_r + 2][1] = current[0][n_loc_c - 1];
+    extended[n_loc_r + 2][n_loc_c + 2] = current[0][0];
+    extended[n_loc_r + 2][n_loc_c + 3] = current[0][1];
+    
+    extended[n_loc_r + 3][0] = current[1][n_loc_c - 2];
+    extended[n_loc_r + 3][1] = current[1][n_loc_c - 1];
+    extended[n_loc_r + 3][n_loc_c + 2] = current[1][0];
+    extended[n_loc_r + 3][n_loc_c + 3] = current[1][1];
 }

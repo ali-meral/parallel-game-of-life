@@ -1,10 +1,10 @@
 # input parameters
 P ?= 4
-N ?= 1024
+N ?= 8
 SEED ?= 1
-DENSITY ?= 28
-ITERATIONS ?= 1
-REPS ?= 30
+DENSITY ?= 30
+ITERATIONS ?= 2
+REPS ?= 1
 VERIFY ?= 1
 VERBOSE ?= 0
 

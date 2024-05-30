@@ -1,7 +1,5 @@
 #include "utilities.h"
-#include "matrix_operations.h"
 #include <getopt.h>
-#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,23 +22,6 @@ void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int
             }
         }
     }
-}
-
-int compare_matrices(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n])
-{
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
-
-            if (matrix1[i][j] != matrix2[i][j])
-            {
-                printf("matrix1[%d][%d] = %d, matrix2[%d][%d] = %d\n", i, j, matrix1[i][j], i, j, matrix2[i][j]);
-                return 0; // Matrices are not equal
-            }
-        }
-    }
-    return 1; // Matrices are equal
 }
 
 // Function to parse command-line arguments
@@ -113,22 +94,27 @@ void reorder_and_compare_communicators(MPI_Comm cartcomm, int *dims, int rank, i
 
     if (rank == 0 && verbose == 1)
     {
-        printf("After reordering the communicators are ");
+        printf("Communicator after reordering are ");
         if (result == MPI_IDENT)
         {
-            printf("identical.\n");
+            printf("MPI_IDENT.\n");
         }
         else if (result == MPI_CONGRUENT)
         {
-            printf("congruent.\n");
+            printf("MPI_CONGRUENT.\n");
         }
         else if (result == MPI_SIMILAR)
         {
-            printf("similar.\n");
+            printf("MPI_SIMILAR.\n");
         }
         else if (result == MPI_UNEQUAL)
         {
-            printf("unequal.\n");
+            printf("MPI_UNEQUAL.\n");
         }
     }
+}
+
+int wrap(int idx, int limit)
+{
+  return idx + limit * (idx < 0) - limit * (idx >= limit);
 }

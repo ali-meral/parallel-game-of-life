@@ -1,6 +1,6 @@
 #include "matrix_operations.h"
 #include "utilities.h"
-#include "run_parallel.h"
+#include "game.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
