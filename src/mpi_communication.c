@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
+void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
 {
     int extended_r = n_loc_r + 4, extended_c = n_loc_c + 4;
 
@@ -17,12 +17,12 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
         }
     }
 
-    // Copy the current matrix to the center of the extended matrix
+    // Copy the matrix matrix to the center of the extended matrix
     for (int i = 2; i < n_loc_r + 2; i++)
     {
         for (int j = 2; j < n_loc_c + 2; j++)
         {
-            extended_matrix[i][j] = current[i - 2][j - 2];
+            extended_matrix[i][j] = matrix[i - 2][j - 2];
         }
     }
 
@@ -69,7 +69,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[1] = pos;
@@ -77,7 +77,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[2] = pos;
@@ -85,7 +85,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[3] = pos;
@@ -93,7 +93,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[4] = pos;
@@ -101,7 +101,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[5] = pos;
@@ -109,7 +109,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[6] = pos;
@@ -117,7 +117,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = 0; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
     senddispls[7] = pos;
@@ -125,7 +125,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     {
         for (int j = 0; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = current[i][j];
+            sendbuf[pos++] = matrix[i][j];
         }
     }
 
@@ -217,7 +217,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_
     free(recvbuf);
 }
 
-void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
+void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
 {
     MPI_Status status;
     int rank, coords[2], dims[2], periods[2];
@@ -267,41 +267,41 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c],
     // buffers for top and bottom rows
     for (int j = 0; j < n_loc_c; j++)
     {
-        send_top[j] = current[0][j];
-        send_top[j + n_loc_c] = current[1][j];
-        send_bottom[j] = current[n_loc_r - 2][j];
-        send_bottom[j + n_loc_c] = current[n_loc_r - 1][j];
+        send_top[j] = matrix[0][j];
+        send_top[j + n_loc_c] = matrix[1][j];
+        send_bottom[j] = matrix[n_loc_r - 2][j];
+        send_bottom[j + n_loc_c] = matrix[n_loc_r - 1][j];
     }
 
     // buffers for left and right columns
     for (int i = 0; i < n_loc_r; i++)
     {
-        send_left[i] = current[i][0];
-        send_left[i + n_loc_r] = current[i][1];
-        send_right[i] = current[i][n_loc_c - 1];
-        send_right[i + n_loc_r] = current[i][n_loc_c - 2];
+        send_left[i] = matrix[i][0];
+        send_left[i + n_loc_r] = matrix[i][1];
+        send_right[i] = matrix[i][n_loc_c - 1];
+        send_right[i + n_loc_r] = matrix[i][n_loc_c - 2];
     }
 
     // buffers for corners
-    send_top_left[0] = current[0][0];
-    send_top_left[1] = current[0][1];
-    send_top_left[2] = current[1][0];
-    send_top_left[3] = current[1][1];
+    send_top_left[0] = matrix[0][0];
+    send_top_left[1] = matrix[0][1];
+    send_top_left[2] = matrix[1][0];
+    send_top_left[3] = matrix[1][1];
 
-    send_top_right[0] = current[0][n_loc_c - 1];
-    send_top_right[1] = current[0][n_loc_c - 2];
-    send_top_right[2] = current[1][n_loc_c - 1];
-    send_top_right[3] = current[1][n_loc_c - 2];
+    send_top_right[0] = matrix[0][n_loc_c - 1];
+    send_top_right[1] = matrix[0][n_loc_c - 2];
+    send_top_right[2] = matrix[1][n_loc_c - 1];
+    send_top_right[3] = matrix[1][n_loc_c - 2];
 
-    send_bottom_left[0] = current[n_loc_r - 1][0];
-    send_bottom_left[1] = current[n_loc_r - 2][0];
-    send_bottom_left[2] = current[n_loc_r - 1][1];
-    send_bottom_left[3] = current[n_loc_r - 2][1];
+    send_bottom_left[0] = matrix[n_loc_r - 1][0];
+    send_bottom_left[1] = matrix[n_loc_r - 2][0];
+    send_bottom_left[2] = matrix[n_loc_r - 1][1];
+    send_bottom_left[3] = matrix[n_loc_r - 2][1];
 
-    send_bottom_right[0] = current[n_loc_r - 1][n_loc_c - 1];
-    send_bottom_right[1] = current[n_loc_r - 2][n_loc_c - 1];
-    send_bottom_right[2] = current[n_loc_r - 1][n_loc_c - 2];
-    send_bottom_right[3] = current[n_loc_r - 2][n_loc_c - 2];
+    send_bottom_right[0] = matrix[n_loc_r - 1][n_loc_c - 1];
+    send_bottom_right[1] = matrix[n_loc_r - 2][n_loc_c - 1];
+    send_bottom_right[2] = matrix[n_loc_r - 1][n_loc_c - 2];
+    send_bottom_right[3] = matrix[n_loc_r - 2][n_loc_c - 2];
 
     // top and bottom rows
     MPI_Sendrecv(send_top, 2 * n_loc_c, MPI_UINT8_T, neighbors[1], 0,
@@ -343,7 +343,7 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c],
     {
         for (int j = 0; j < n_loc_c; j++)
         {
-            extended_matrix[i + 2][j + 2] = current[i][j];
+            extended_matrix[i + 2][j + 2] = matrix[i][j];
         }
     }
 
@@ -401,8 +401,7 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c],
 }
 
 void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_offset_r, int m_offset_c,
-                  uint8_t (*current)[n_loc_c], uint8_t (*global_matrix_par)[n], MPI_Comm cartcomm,
-                  int verbose, int iterations)
+                  uint8_t (*matrix)[n_loc_c], uint8_t (*global_matrix_par)[n], MPI_Comm cartcomm)
 {
     if (rank == 0)
     {
@@ -410,7 +409,7 @@ void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_off
         {
             for (int j = 0; j < n_loc_c; ++j)
             {
-                global_matrix_par[m_offset_r + i][m_offset_c + j] = current[i][j];
+                global_matrix_par[m_offset_r + i][m_offset_c + j] = matrix[i][j];
             }
         }
 
@@ -436,6 +435,6 @@ void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_off
     }
     else
     {
-        MPI_Send(&(current[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(&(matrix[0][0]), n_loc_r * n_loc_c, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD);
     }
 }

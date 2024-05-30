@@ -25,7 +25,7 @@ all: main_parallel main_sequential main_collectives
 # Rules
 run_parallel: main_parallel
 	@echo "SendRecv running $(REPS) times:"
-	@echo "P: $(P) , Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
+	@echo "P: $(P), Grid size: $(N), Seed: $(SEED), Density: $(DENSITY)%, Iterations: $(ITERATIONS), Verbose: $(VERBOSE)"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo "Repetition $$i:"; \
 		mpirun -np $(P) ./main_parallel -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \

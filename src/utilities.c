@@ -24,7 +24,6 @@ void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int
     }
 }
 
-// Function to parse command-line arguments
 void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, int *iterations, int *verbose, int *verify)
 {
     static struct option long_options[] = {
@@ -60,7 +59,7 @@ void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, in
             *verify = 1;
             break;
         default:
-            fprintf(stderr, "Usage: %s [-n size] [-s seed] [-d density] [-i iterations] [-v verbose]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-n size] [-s seed] [-d density] [-i iterations] [-v verbose] [-c verify]\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     }
@@ -69,15 +68,6 @@ void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, in
     {
         fprintf(stderr, "Density should be between 1 and 100\n");
         exit(EXIT_FAILURE);
-    }
-
-    // check for the --sequential flag
-    for (int i = 1; i < argc; i++)
-    {
-        if (strcmp(argv[i], "--sequential") == 0)
-        {
-            continue;
-        }
     }
 }
 
@@ -112,9 +102,4 @@ void reorder_and_compare_communicators(MPI_Comm cartcomm, int *dims, int rank, i
             printf("MPI_UNEQUAL.\n");
         }
     }
-}
-
-int wrap(int idx, int limit)
-{
-  return idx + limit * (idx < 0) - limit * (idx >= limit);
 }

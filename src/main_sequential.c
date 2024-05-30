@@ -5,10 +5,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-
 void main_sequential(int argc, char *argv[])
 {
-
     // default values
     int seed = 10;
     int n = 10;
@@ -18,10 +16,9 @@ void main_sequential(int argc, char *argv[])
 
     // Parse command-line arguments
     // NULL because we don't need to verify
-    parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, NULL); 
+    parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, NULL);
 
     uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
-
 
     // Time with MPI_Wtime
     run_sequential_simulation(n, seed, density, iterations, final_matrix);
@@ -33,20 +30,17 @@ void main_sequential(int argc, char *argv[])
         print_matrix_seq(n, n, final_matrix);
     }
 
-
     // count cells using count_cells
     int alive = 0;
     int dead = 0;
     count_cells(n, n, final_matrix, &alive, &dead);
     printf("alive: %d, dead: %d\n", alive, dead);
-    
 
     free(final_matrix);
-
 }
 
-
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     main_sequential(argc, argv);
     return 0;
 }

@@ -3,69 +3,71 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int compare_matrices(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n])
+int matrices_are_equal(int n, uint8_t (*matrix1)[n], uint8_t (*matrix2)[n])
 {
-    for (int i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
+  {
+    for (int j = 0; j < n; j++)
     {
-        for (int j = 0; j < n; j++)
-        {
-
-            if (matrix1[i][j] != matrix2[i][j])
-            {
-                printf("matrix1[%d][%d] = %d, matrix2[%d][%d] = %d\n", i, j, matrix1[i][j], i, j, matrix2[i][j]);
-                return 0; // Matrices are not equal
-            }
-        }
+      if (matrix1[i][j] != matrix2[i][j])
+      {
+        return 0; // not equal
+      }
     }
-    return 1; // Matrices are equal
+  }
+  return 1; // equal
 }
 
-void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*current)[n_loc_c], uint8_t (*extended)[n_loc_c + 4]) {
-    // Fill the center of the extended grid with the original grid
-    for (int i = 0; i < n_loc_r; i++) {
-        for (int j = 0; j < n_loc_c; j++) {
-            extended[i + 2][j + 2] = current[i][j];
-        }
+void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], uint8_t (*extended)[n_loc_c + 4])
+{
+  // place the matrix in the center of the extended matrix
+  for (int i = 0; i < n_loc_r; i++)
+  {
+    for (int j = 0; j < n_loc_c; j++)
+    {
+      extended[i + 2][j + 2] = matrix[i][j];
     }
+  }
 
-    // Fill the wrap-around rows
-    for (int j = 0; j < n_loc_c; j++) {
-        extended[0][j + 2] = current[n_loc_r - 2][j];
-        extended[1][j + 2] = current[n_loc_r - 1][j];
-        extended[n_loc_r + 2][j + 2] = current[0][j];
-        extended[n_loc_r + 3][j + 2] = current[1][j];
-    }
+  // fill rows
+  for (int j = 0; j < n_loc_c; j++)
+  {
+    extended[0][j + 2] = matrix[n_loc_r - 2][j];
+    extended[1][j + 2] = matrix[n_loc_r - 1][j];
+    extended[n_loc_r + 2][j + 2] = matrix[0][j];
+    extended[n_loc_r + 3][j + 2] = matrix[1][j];
+  }
 
-    // Fill the wrap-around columns
-    for (int i = 0; i < n_loc_r; i++) {
-        extended[i + 2][0] = current[i][n_loc_c - 2];
-        extended[i + 2][1] = current[i][n_loc_c - 1];
-        extended[i + 2][n_loc_c + 2] = current[i][0];
-        extended[i + 2][n_loc_c + 3] = current[i][1];
-    }
+  // fill columns
+  for (int i = 0; i < n_loc_r; i++)
+  {
+    extended[i + 2][0] = matrix[i][n_loc_c - 2];
+    extended[i + 2][1] = matrix[i][n_loc_c - 1];
+    extended[i + 2][n_loc_c + 2] = matrix[i][0];
+    extended[i + 2][n_loc_c + 3] = matrix[i][1];
+  }
 
-    // Fill the corners
-    extended[0][0] = current[n_loc_r - 2][n_loc_c - 2];
-    extended[0][1] = current[n_loc_r - 2][n_loc_c - 1];
-    extended[0][n_loc_c + 2] = current[n_loc_r - 2][0];
-    extended[0][n_loc_c + 3] = current[n_loc_r - 2][1];
-    
-    extended[1][0] = current[n_loc_r - 1][n_loc_c - 2];
-    extended[1][1] = current[n_loc_r - 1][n_loc_c - 1];
-    extended[1][n_loc_c + 2] = current[n_loc_r - 1][0];
-    extended[1][n_loc_c + 3] = current[n_loc_r - 1][1];
-    
-    extended[n_loc_r + 2][0] = current[0][n_loc_c - 2];
-    extended[n_loc_r + 2][1] = current[0][n_loc_c - 1];
-    extended[n_loc_r + 2][n_loc_c + 2] = current[0][0];
-    extended[n_loc_r + 2][n_loc_c + 3] = current[0][1];
-    
-    extended[n_loc_r + 3][0] = current[1][n_loc_c - 2];
-    extended[n_loc_r + 3][1] = current[1][n_loc_c - 1];
-    extended[n_loc_r + 3][n_loc_c + 2] = current[1][0];
-    extended[n_loc_r + 3][n_loc_c + 3] = current[1][1];
+  // corners
+  extended[0][0] = matrix[n_loc_r - 2][n_loc_c - 2];
+  extended[0][1] = matrix[n_loc_r - 2][n_loc_c - 1];
+  extended[0][n_loc_c + 2] = matrix[n_loc_r - 2][0];
+  extended[0][n_loc_c + 3] = matrix[n_loc_r - 2][1];
+
+  extended[1][0] = matrix[n_loc_r - 1][n_loc_c - 2];
+  extended[1][1] = matrix[n_loc_r - 1][n_loc_c - 1];
+  extended[1][n_loc_c + 2] = matrix[n_loc_r - 1][0];
+  extended[1][n_loc_c + 3] = matrix[n_loc_r - 1][1];
+
+  extended[n_loc_r + 2][0] = matrix[0][n_loc_c - 2];
+  extended[n_loc_r + 2][1] = matrix[0][n_loc_c - 1];
+  extended[n_loc_r + 2][n_loc_c + 2] = matrix[0][0];
+  extended[n_loc_r + 2][n_loc_c + 3] = matrix[0][1];
+
+  extended[n_loc_r + 3][0] = matrix[1][n_loc_c - 2];
+  extended[n_loc_r + 3][1] = matrix[1][n_loc_c - 1];
+  extended[n_loc_r + 3][n_loc_c + 2] = matrix[1][0];
+  extended[n_loc_r + 3][n_loc_c + 3] = matrix[1][1];
 }
-
 
 void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, int density, int m_offset_r, int m_offset_c)
 {
@@ -92,8 +94,6 @@ void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, in
   }
 }
 
-
-
 void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank, int size)
 {
   for (int i = 0; i < size; i++)
@@ -113,17 +113,21 @@ void print_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int rank
   }
 }
 
-void print_matrix_seq(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c]) {
-    for (int i = 0; i < n_loc_r; i++) {
-        for (int j = 0; j < n_loc_c; j++) {
-            printf("%d ", matrix[i][j]);
-        }
-        printf("\n");
+void print_matrix_seq(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c])
+{
+  for (int i = 0; i < n_loc_r; i++)
+  {
+    for (int j = 0; j < n_loc_c; j++)
+    {
+      printf("%d ", matrix[i][j]);
     }
-    fflush(stdout);
+    printf("\n");
+  }
+  fflush(stdout);
 }
 
-void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next)[n_loc_c])
+// use the extended matrix to update without modulus
+void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c + 4], uint8_t (*next_matrix)[n_loc_c])
 {
   for (int i = 2; i < n_loc_r + 2; i++)
   {
@@ -139,7 +143,7 @@ void update_matrix(int n_loc_r, int n_loc_c, uint8_t (*extended_matrix)[n_loc_c 
           extended_matrix[i + 2][j] +
           extended_matrix[i + 2][j + 2];
 
-      next[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended_matrix[i][j]));
+      next_matrix[i - 2][j - 2] = (neighbors == 3 || (neighbors == 2 && extended_matrix[i][j]));
     }
   }
 }

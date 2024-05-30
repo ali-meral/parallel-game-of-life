@@ -9,25 +9,31 @@
 
 typedef struct {
     int n, seed, density, iterations, verbose, verify;
-    int dims[2], coords[2], rank, size, prow_idx, pcol_idx;
+    int dims[2], coords[2], pers[2], rank, size, prow_idx, pcol_idx;
     int n_loc_r, n_loc_c, nprows, npcols;
     MPI_Comm cartcomm;
-    int pers[2];
 } SimulationParams;
 
 void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
 {
-    params->n = params->seed = params->density = params->iterations = params->verbose = params->verify = 0;
-    params->rank = params->size = params->prow_idx = params->pcol_idx = params->n_loc_r = params->n_loc_c = params->nprows = params->npcols = 0;
-    params->dims[0] = params->dims[1] = params->coords[0] = params->coords[1] = 0;
-    params->pers[0] = params->pers[1] = 1;
+    params->seed = 10;
+    params->n = 10;
+    params->density = 10;
+    params->iterations = 2;
+    params->verbose = 0;
+    params->verify = 0;
+
+    params->pers[0] = params->pers[1] = 1; // makes it periodic
 
     MPI_Init(&argc, &argv);
+
     parse_arguments(argc, argv, &params->n, &params->seed, &params->density, &params->iterations, &params->verbose, &params->verify);
+
     MPI_Comm_rank(MPI_COMM_WORLD, &params->rank);
     MPI_Comm_size(MPI_COMM_WORLD, &params->size);
     MPI_Dims_create(params->size, 2, params->dims);
 
+    // Hardcode some matrix sizes for experiments
     switch (params->size)
     {
     case 32:
@@ -83,27 +89,32 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
         printf("n_loc_r: %d n_loc_c: %d\n", params->n_loc_r, params->n_loc_c);
     }
 
+    int m_offset_r = params->prow_idx * params->n_loc_r;
+    int m_offset_c = params->pcol_idx * params->n_loc_c;
+
     if (params->verbose)
     {
-        printf("Rank %d: prow_idx: %d pcol_idx: %d m_offset_r: %d m_offset_c: %d\n", params->rank, params->prow_idx, params->pcol_idx, params->prow_idx * params->n_loc_r, params->pcol_idx * params->n_loc_c);
+        printf("Rank %d: prow_idx: %d pcol_idx: %d m_offset_r: %d m_offset_c: %d\n",
+                params->rank, params->prow_idx, params->pcol_idx, m_offset_r, m_offset_c);
     }
 }
 
 void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint8_t(*)[params->n_loc_c], uint8_t(*)[params->n_loc_c], MPI_Comm), const char *computation_label)
 {
-    uint8_t(*current)[params->n_loc_c] = malloc(params->n_loc_r * params->n_loc_c * sizeof(uint8_t));
-    uint8_t(*next)[params->n_loc_c] = malloc(params->n_loc_r * params->n_loc_c * sizeof(uint8_t));
+    uint8_t(*matrix)[params->n_loc_c] = malloc(params->n_loc_r * params->n_loc_c * sizeof(uint8_t));
+    uint8_t(*next_matrix)[params->n_loc_c] = malloc(params->n_loc_r * params->n_loc_c * sizeof(uint8_t));
     uint8_t(*global_matrix_par)[params->n] = malloc(params->n * params->n * sizeof(uint8_t));
-    int extended_r = params->n_loc_r + 4, extended_c = params->n_loc_c + 4;
+    int extended_r = params->n_loc_r + 4;
+    int extended_c = params->n_loc_c + 4;
     uint8_t(*extended_matrix)[extended_c] = malloc(extended_r * extended_c * sizeof(uint8_t));
 
     srand(params->seed);
-    fill_matrix(params->n_loc_r, params->n_loc_c, current, params->n, params->density, params->prow_idx * params->n_loc_r, params->pcol_idx * params->n_loc_c);
+    fill_matrix(params->n_loc_r, params->n_loc_c, matrix, params->n, params->density, params->prow_idx * params->n_loc_r, params->pcol_idx * params->n_loc_c);
 
     if (params->verbose)
     {
         printf("Generation 0:\n");
-        print_matrix(params->n_loc_r, params->n_loc_c, current, params->rank, params->size);
+        print_matrix(params->n_loc_r, params->n_loc_c, matrix, params->rank, params->size);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -111,12 +122,12 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
 
     for (int gen = 1; gen <= params->iterations; gen++)
     {
-        communicate(params->n_loc_r, params->n_loc_c, current, extended_matrix, params->cartcomm);
-        update_matrix(params->n_loc_r, params->n_loc_c, extended_matrix, next);
+        communicate(params->n_loc_r, params->n_loc_c, matrix, extended_matrix, params->cartcomm);
+        update_matrix(params->n_loc_r, params->n_loc_c, extended_matrix, next_matrix);
 
-        uint8_t(*temp)[params->n_loc_c] = current;
-        current = next;
-        next = temp;
+        uint8_t(*temp)[params->n_loc_c] = matrix;
+        matrix = next_matrix;
+        next_matrix = temp;
     }
 
     double end_time = MPI_Wtime();
@@ -129,14 +140,26 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
         printf("%s Computation time: %f ms\n", computation_label, max_time * 1000);
     }
 
-    gather_ranks(params->n_loc_r, params->n_loc_c, params->n, params->rank, params->size, params->prow_idx * params->n_loc_r, params->pcol_idx * params->n_loc_c, current, global_matrix_par, params->cartcomm, params->verbose, params->iterations);
+    gather_ranks(params->n_loc_r,                   // number of local rows
+                params->n_loc_c,                    // number of local columns
+                params->n,                         // global number of rows and columns
+                params->rank,                       // rank of the process
+                params->size,                       // total number of processes
+                params->prow_idx * params->n_loc_r, // offset of the local rows
+                params->pcol_idx * params->n_loc_c, // offset of the local columns
+                matrix,                            // local matrix
+                global_matrix_par,                  // global matrix
+                params->cartcomm                    // cartesian communicator
+                );
 
+    // print final generation
     if (params->rank == 0 && params->verbose)
     {
         printf("Parallel Final Generation %d:\n", params->iterations);
         print_matrix(params->n, params->n, (uint8_t(*)[params->n])global_matrix_par, params->rank, params->size);
     }
 
+    // counalive and dead cells and print the result
     if (params->rank == 0)
     {
         int local_alive = 0, local_dead = 0;
@@ -144,17 +167,18 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
         printf("alive: %d, dead: %d\n", local_alive, local_dead);
     }
 
+    // check if matrices match (sequential vs parallel)
     if (params->verify && params->rank == 0)
     {
         uint8_t(*final_matrix)[params->n] = malloc(params->n * params->n * sizeof(uint8_t));
         run_sequential_simulation(params->n, params->seed, params->density, params->iterations, final_matrix);
-        int result = compare_matrices(params->n, final_matrix, global_matrix_par);
-        printf("Parallel and sequential computed matrices %s.\n", result ? "match" : "do not match");
+        int result = matrices_are_equal(params->n, final_matrix, global_matrix_par);
+        printf("Matrices %s.\n", result ? "match" : "do not match");
         free(final_matrix);
     }
 
-    free(current);
-    free(next);
+    free(matrix);
+    free(next_matrix);
     free(global_matrix_par);
     free(extended_matrix);
 }
