@@ -136,7 +136,7 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
     if (params->rank == 0)
     {
         // computation method and time
-        printf("%s\t%f", computation_label, max_time * 1000);
+        printf("%s\t%lf", computation_label, max_time * 1000);
     }
 
     gather_ranks(params->n_loc_r,                   // number of local rows
