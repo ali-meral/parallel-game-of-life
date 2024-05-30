@@ -5,8 +5,6 @@ SEED ?= 1
 DENSITY ?= 30
 ITERATIONS ?= 10
 REPS ?= 10
-VERIFY ?= 1
-VERBOSE ?= 0
 
 # Compiler and flags
 MPICC = mpicc
@@ -45,7 +43,7 @@ run_sequential: main_sequential
 	@echo "reps\tn\tseed\tdensity\titers\timplementation\ttime (ms)\talive\tdead"
 	@for i in $$(seq 1 $(REPS)); do \
 		echo -n "$$i\t"; \
-		./main_sequential -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS) $(VERBOSE); \
+		./main_sequential -n $(N) -s $(SEED) -d $(DENSITY) -i $(ITERATIONS); \
 	done
 
 clean:
