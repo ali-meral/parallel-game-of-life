@@ -55,88 +55,88 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     MPI_Dist_graph_create_adjacent(cartcomm, 8, neighbors, MPI_UNWEIGHTED, 8, neighbors, MPI_UNWEIGHTED, MPI_INFO_NULL, 0, &dist_graph_comm);
 
     int total_send_size = 4 * 4 + 2 * 2 * n_loc_r + 2 * 2 * n_loc_c;
-    int total_recv_size = total_send_size;
+    int total_receive_size = total_send_size;
 
-    uint8_t *sendbuf = (uint8_t *)malloc(total_send_size * sizeof(uint8_t));
-    uint8_t *recvbuf = (uint8_t *)malloc(total_recv_size * sizeof(uint8_t));
+    uint8_t *send_buffer = (uint8_t *)malloc(total_send_size * sizeof(uint8_t));
+    uint8_t *receive_buffer = (uint8_t *)malloc(total_receive_size * sizeof(uint8_t));
 
-    int sendcounts[8], recvcounts[8];
-    int senddispls[8], recvdispls[8];
+    int send_count[8], receive_count[8];
+    int send_displacement[8], receive_displacement[8];
 
     int pos = 0;
-    senddispls[0] = pos;
+    send_displacement[0] = pos;
     for (int i = 0; i < 2; i++)
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[1] = pos;
+    send_displacement[1] = pos;
     for (int i = 0; i < 2; i++)
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[2] = pos;
+    send_displacement[2] = pos;
     for (int i = n_loc_r - 2; i < n_loc_r; i++)
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[3] = pos;
+    send_displacement[3] = pos;
     for (int i = n_loc_r - 2; i < n_loc_r; i++)
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[4] = pos;
+    send_displacement[4] = pos;
     for (int i = 0; i < n_loc_r; i++)
     {
         for (int j = 0; j < 2; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[5] = pos;
+    send_displacement[5] = pos;
     for (int i = 0; i < n_loc_r; i++)
     {
         for (int j = n_loc_c - 2; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[6] = pos;
+    send_displacement[6] = pos;
     for (int i = 0; i < 2; i++)
     {
         for (int j = 0; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
-    senddispls[7] = pos;
+    send_displacement[7] = pos;
     for (int i = n_loc_r - 2; i < n_loc_r; i++)
     {
         for (int j = 0; j < n_loc_c; j++)
         {
-            sendbuf[pos++] = matrix[i][j];
+            send_buffer[pos++] = matrix[i][j];
         }
     }
 
     for (int i = 0; i < 8; i++)
     {
-        sendcounts[i] = recvcounts[i] = (i < 4) ? 4 : ((i < 6) ? n_loc_r * 2 : n_loc_c * 2);
-        recvdispls[i] = senddispls[i];
+        send_count[i] = receive_count[i] = (i < 4) ? 4 : ((i < 6) ? n_loc_r * 2 : n_loc_c * 2);
+        receive_displacement[i] = send_displacement[i];
     }
 
-    MPI_Neighbor_alltoallv(sendbuf, sendcounts, senddispls, MPI_UINT8_T,
-                           recvbuf, recvcounts, recvdispls, MPI_UINT8_T,
+    MPI_Neighbor_alltoallv(send_buffer, send_count, send_displacement, MPI_UINT8_T,
+                           receive_buffer, receive_count, receive_displacement, MPI_UINT8_T,
                            dist_graph_comm);
 
     // Unpack the received data into the extended matrix
@@ -149,7 +149,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = n_loc_c + 2; j < n_loc_c + 4; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
     // Lower left
@@ -157,7 +157,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = 0; j < 2; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
     // Upper right
@@ -165,7 +165,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = n_loc_c + 2; j < n_loc_c + 4; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
     // Upper left
@@ -173,7 +173,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = 0; j < 2; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
 
@@ -183,7 +183,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = n_loc_c + 2; j < n_loc_c + 4; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
     // Upper edge
@@ -191,7 +191,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = 0; j < 2; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
 
@@ -200,7 +200,7 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = 2; j < n_loc_c + 2; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
 
@@ -209,12 +209,12 @@ void collectives_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c
     {
         for (int j = 2; j < n_loc_c + 2; j++)
         {
-            extended_matrix[i][j] = recvbuf[pos++];
+            extended_matrix[i][j] = receive_buffer[pos++];
         }
     }
 
-    free(sendbuf);
-    free(recvbuf);
+    free(send_buffer);
+    free(receive_buffer);
 }
 
 void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], uint8_t (*extended_matrix)[n_loc_c + 4], MPI_Comm cartcomm)
@@ -241,28 +241,28 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], 
 
     // reserve space for the buffers
     uint8_t *send_top = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
-    uint8_t *recv_bottom = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
+    uint8_t *receive_bottom = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
 
     uint8_t *send_bottom = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
-    uint8_t *recv_top = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
+    uint8_t *receive_top = (uint8_t *)malloc(2 * n_loc_c * sizeof(uint8_t));
 
     uint8_t *send_left = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
-    uint8_t *recv_right = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
+    uint8_t *receive_right = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
 
     uint8_t *send_right = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
-    uint8_t *recv_left = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
+    uint8_t *receive_left = (uint8_t *)malloc(2 * n_loc_r * sizeof(uint8_t));
 
     uint8_t *send_top_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
-    uint8_t *recv_bottom_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
+    uint8_t *receive_bottom_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
 
     uint8_t *send_top_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
-    uint8_t *recv_bottom_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
+    uint8_t *receive_bottom_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
 
     uint8_t *send_bottom_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
-    uint8_t *recv_top_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
+    uint8_t *receive_top_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
 
     uint8_t *send_bottom_right = (uint8_t *)malloc(4 * sizeof(uint8_t));
-    uint8_t *recv_top_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
+    uint8_t *receive_top_left = (uint8_t *)malloc(4 * sizeof(uint8_t));
 
     // buffers for top and bottom rows
     for (int j = 0; j < n_loc_c; j++)
@@ -305,37 +305,37 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], 
 
     // top and bottom rows
     MPI_Sendrecv(send_top, 2 * n_loc_c, MPI_UINT8_T, neighbors[1], 0,
-                 recv_bottom, 2 * n_loc_c, MPI_UINT8_T, neighbors[6], 0,
+                 receive_bottom, 2 * n_loc_c, MPI_UINT8_T, neighbors[6], 0,
                  cartcomm, &status);
 
     MPI_Sendrecv(send_bottom, 2 * n_loc_c, MPI_UINT8_T, neighbors[6], 1,
-                 recv_top, 2 * n_loc_c, MPI_UINT8_T, neighbors[1], 1,
+                 receive_top, 2 * n_loc_c, MPI_UINT8_T, neighbors[1], 1,
                  cartcomm, &status);
 
     // left and right columns
     MPI_Sendrecv(send_left, 2 * n_loc_r, MPI_UINT8_T, neighbors[3], 2,
-                 recv_right, 2 * n_loc_r, MPI_UINT8_T, neighbors[4], 2,
+                 receive_right, 2 * n_loc_r, MPI_UINT8_T, neighbors[4], 2,
                  cartcomm, &status);
 
     MPI_Sendrecv(send_right, 2 * n_loc_r, MPI_UINT8_T, neighbors[4], 3,
-                 recv_left, 2 * n_loc_r, MPI_UINT8_T, neighbors[3], 3,
+                 receive_left, 2 * n_loc_r, MPI_UINT8_T, neighbors[3], 3,
                  cartcomm, &status);
 
     // corners
     MPI_Sendrecv(send_top_left, 4, MPI_UINT8_T, neighbors[0], 4,
-                 recv_bottom_right, 4, MPI_UINT8_T, neighbors[7], 4,
+                 receive_bottom_right, 4, MPI_UINT8_T, neighbors[7], 4,
                  cartcomm, &status);
 
     MPI_Sendrecv(send_top_right, 4, MPI_UINT8_T, neighbors[2], 5,
-                 recv_bottom_left, 4, MPI_UINT8_T, neighbors[5], 5,
+                 receive_bottom_left, 4, MPI_UINT8_T, neighbors[5], 5,
                  cartcomm, &status);
 
     MPI_Sendrecv(send_bottom_left, 4, MPI_UINT8_T, neighbors[5], 6,
-                 recv_top_right, 4, MPI_UINT8_T, neighbors[2], 6,
+                 receive_top_right, 4, MPI_UINT8_T, neighbors[2], 6,
                  cartcomm, &status);
 
     MPI_Sendrecv(send_bottom_right, 4, MPI_UINT8_T, neighbors[7], 7,
-                 recv_top_left, 4, MPI_UINT8_T, neighbors[0], 7,
+                 receive_top_left, 4, MPI_UINT8_T, neighbors[0], 7,
                  cartcomm, &status);
 
     // place the original matrix into the extended matrix
@@ -350,54 +350,54 @@ void sendrecv_communicate(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], 
     // copy received into extended matrix
     for (int j = 0; j < n_loc_c; j++)
     {
-        extended_matrix[0][j + 2] = recv_top[j];
-        extended_matrix[1][j + 2] = recv_top[j + n_loc_c];
-        extended_matrix[n_loc_r + 2][j + 2] = recv_bottom[j];
-        extended_matrix[n_loc_r + 3][j + 2] = recv_bottom[j + n_loc_c];
+        extended_matrix[0][j + 2] = receive_top[j];
+        extended_matrix[1][j + 2] = receive_top[j + n_loc_c];
+        extended_matrix[n_loc_r + 2][j + 2] = receive_bottom[j];
+        extended_matrix[n_loc_r + 3][j + 2] = receive_bottom[j + n_loc_c];
     }
 
     for (int i = 0; i < n_loc_r; i++)
     {
-        extended_matrix[i + 2][0] = recv_left[i + n_loc_r];
-        extended_matrix[i + 2][1] = recv_left[i];
-        extended_matrix[i + 2][n_loc_c + 2] = recv_right[i];
-        extended_matrix[i + 2][n_loc_c + 3] = recv_right[i + n_loc_r];
+        extended_matrix[i + 2][0] = receive_left[i + n_loc_r];
+        extended_matrix[i + 2][1] = receive_left[i];
+        extended_matrix[i + 2][n_loc_c + 2] = receive_right[i];
+        extended_matrix[i + 2][n_loc_c + 3] = receive_right[i + n_loc_r];
     }
 
-    extended_matrix[0][0] = recv_top_left[3]; // farthest point
-    extended_matrix[0][1] = recv_top_left[1]; // next layer
-    extended_matrix[1][0] = recv_top_left[2]; // next layer
-    extended_matrix[1][1] = recv_top_left[0]; // closest point
+    extended_matrix[0][0] = receive_top_left[3]; // farthest point
+    extended_matrix[0][1] = receive_top_left[1]; // next layer
+    extended_matrix[1][0] = receive_top_left[2]; // next layer
+    extended_matrix[1][1] = receive_top_left[0]; // closest point
 
-    extended_matrix[0][n_loc_c + 2] = recv_top_right[1];
-    extended_matrix[0][n_loc_c + 3] = recv_top_right[3];
-    extended_matrix[1][n_loc_c + 2] = recv_top_right[0];
-    extended_matrix[1][n_loc_c + 3] = recv_top_right[2];
+    extended_matrix[0][n_loc_c + 2] = receive_top_right[1];
+    extended_matrix[0][n_loc_c + 3] = receive_top_right[3];
+    extended_matrix[1][n_loc_c + 2] = receive_top_right[0];
+    extended_matrix[1][n_loc_c + 3] = receive_top_right[2];
 
-    extended_matrix[n_loc_r + 2][0] = recv_bottom_left[1];
-    extended_matrix[n_loc_r + 2][1] = recv_bottom_left[0];
-    extended_matrix[n_loc_r + 3][0] = recv_bottom_left[3];
-    extended_matrix[n_loc_r + 3][1] = recv_bottom_left[2];
+    extended_matrix[n_loc_r + 2][0] = receive_bottom_left[1];
+    extended_matrix[n_loc_r + 2][1] = receive_bottom_left[0];
+    extended_matrix[n_loc_r + 3][0] = receive_bottom_left[3];
+    extended_matrix[n_loc_r + 3][1] = receive_bottom_left[2];
 
-    extended_matrix[n_loc_r + 2][n_loc_c + 2] = recv_bottom_right[0];
-    extended_matrix[n_loc_r + 2][n_loc_c + 3] = recv_bottom_right[1];
-    extended_matrix[n_loc_r + 3][n_loc_c + 2] = recv_bottom_right[2];
-    extended_matrix[n_loc_r + 3][n_loc_c + 3] = recv_bottom_right[3];
+    extended_matrix[n_loc_r + 2][n_loc_c + 2] = receive_bottom_right[0];
+    extended_matrix[n_loc_r + 2][n_loc_c + 3] = receive_bottom_right[1];
+    extended_matrix[n_loc_r + 3][n_loc_c + 2] = receive_bottom_right[2];
+    extended_matrix[n_loc_r + 3][n_loc_c + 3] = receive_bottom_right[3];
 
-    free(recv_top);
-    free(recv_bottom);
+    free(receive_top);
+    free(receive_bottom);
     free(send_left);
-    free(recv_right);
+    free(receive_right);
     free(send_right);
-    free(recv_left);
+    free(receive_left);
     free(send_top_left);
-    free(recv_bottom_right);
+    free(receive_bottom_right);
     free(send_top_right);
-    free(recv_bottom_left);
+    free(receive_bottom_left);
     free(send_bottom_left);
-    free(recv_top_right);
+    free(receive_top_right);
     free(send_bottom_right);
-    free(recv_top_left);
+    free(receive_top_left);
 }
 
 void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_offset_r, int m_offset_c,
@@ -415,22 +415,22 @@ void gather_ranks(int n_loc_r, int n_loc_c, int n, int rank, int size, int m_off
 
         for (int r = 1; r < size; ++r)
         {
-            uint8_t *recv_buffer = (uint8_t *)malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
-            MPI_Recv(recv_buffer, n_loc_r * n_loc_c, MPI_UINT8_T, r, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            uint8_t *receive_buffer = (uint8_t *)malloc(n_loc_r * n_loc_c * sizeof(uint8_t));
+            MPI_Recv(receive_buffer, n_loc_r * n_loc_c, MPI_UINT8_T, r, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             int coords[2];
             MPI_Cart_coords(cartcomm, r, 2, coords);
-            int recv_offset_r = coords[0] * n_loc_r;
-            int recv_offset_c = coords[1] * n_loc_c;
+            int receive_offset_r = coords[0] * n_loc_r;
+            int receive_offset_c = coords[1] * n_loc_c;
 
             for (int i = 0; i < n_loc_r; ++i)
             {
                 for (int j = 0; j < n_loc_c; ++j)
                 {
-                    global_matrix_par[recv_offset_r + i][recv_offset_c + j] = recv_buffer[i * n_loc_c + j];
+                    global_matrix_par[receive_offset_r + i][receive_offset_c + j] = receive_buffer[i * n_loc_c + j];
                 }
             }
-            free(recv_buffer);
+            free(receive_buffer);
         }
     }
     else

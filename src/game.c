@@ -171,7 +171,7 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
     if (params->verify && params->rank == 0)
     {
         uint8_t(*final_matrix)[params->n] = malloc(params->n * params->n * sizeof(uint8_t));
-        run_sequential_simulation(params->n, params->seed, params->density, params->iterations, final_matrix, &elapsed_time_seq);
+        run_sequential_simulation(params->n, params->seed, params->density, params->iterations, final_matrix, &elapsed_time_seq, 0);
         int result = matrices_are_equal(params->n, final_matrix, global_matrix_par);
         printf("Matrices %s.\n", result ? "match" : "do not match");
         free(final_matrix);
@@ -206,7 +206,7 @@ void run_sendrecv(int argc, char *argv[])
     MPI_Finalize();
 }
 
-void run_sequential_simulation(int n, int seed, int density, int iterations, uint8_t (*final_matrix)[n], double *time)
+void run_sequential_simulation(int n, int seed, int density, int iterations, uint8_t (*final_matrix)[n], double *time, int verbose)
 {
     uint8_t(*matrix)[n] = malloc(n * n * sizeof(uint8_t));
     uint8_t(*next_matrix)[n] = malloc(n * n * sizeof(uint8_t));
@@ -214,13 +214,24 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
     uint8_t(*extended_matrix)[n + 4] = malloc((n + 4) * (n + 4) * sizeof(uint8_t));
 
     srand(seed);
-    fill_matrix(n, n, matrix, n, density, 0, 0);
+    fill_matrix(n, n, matrix, n, density, 0, 0);    
+
+    if (verbose)
+    {
+        printf("Generation 0:\n");
+        print_matrix_seq(n, n, matrix);
+    }
+
 
     double start_time_seq = MPI_Wtime();
     for (int gen = 1; gen <= iterations; gen++)
     {
         fill_extended_grid(n, n, matrix, extended_matrix);
         update_matrix(n, n, extended_matrix, next_matrix);
+
+        // uncomment to see each generation
+        // printf("Generation %d:\n", gen);
+        // print_matrix_seq(n, n, next_matrix);
 
         uint8_t(*temp)[n] = matrix;
         matrix = next_matrix;
@@ -229,7 +240,7 @@ void run_sequential_simulation(int n, int seed, int density, int iterations, uin
 
     double end_time_seq = MPI_Wtime();
 
-    *time = end_time_seq - start_time_seq;
+    *time = (end_time_seq - start_time_seq) * 1000;
 
     for (int i = 0; i < n; i++)
     {

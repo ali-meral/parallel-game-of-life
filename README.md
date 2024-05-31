@@ -1,6 +1,4 @@
-### Overview
-
-HPC Assignment 2
+## HPC Assignment 2
 
 ### Compilation
 
@@ -18,64 +16,46 @@ make clean
 
 ### Running the Program
 
-#### Parallel Run
-
-To run the parallel program, use the following command:
-
-```sh
-mpirun -np <number_of_processes> ./bin/main_sendrecv -n <grid_size> -s <seed> -d <density> -i <iterations> [-v] [-c]
-```
-
-Example:
-
-```sh
-mpirun -np 4 ./bin/main_sendrecv -n 1000 -s 2 -d 20 -i 10 -v -c
-```
-
-- `-np <number_of_processes>`: Number of processes (e.g., 4)
-- `-n <grid_size>`: Size of the grid (e.g., 1000)
-- `-s <seed>`: Seed for random number generation (e.g., 2)
-- `-d <density>`: Density percentage (e.g., 20)
-- `-i <iterations>`: Number of iterations (e.g., 10)
-- `-v`: Verbose mode (optional)
-- `-c`: Verify the results by comparing with the sequential computation (optional)
-
 #### Sequential Run
 
 To run the sequential program, use the following command:
 
 ```sh
-./bin/main_sequential -n <grid_size> -s <seed> -d <density> -i <iterations> [-v] [-c]
+./main_sequential -n <grid_size> -s <seed> -d <density> -i <iterations> [-v]
 ```
 
 Example:
 
 ```sh
-./bin/main_sequential -n 1000 -s 2 -d 20 -i 10 -v -c
+./main_sequential -n 8 -s 2 -d 20 -i 10
 ```
 
-- `-n <grid_size>`: Size of the grid (e.g., 1000)
-- `-s <seed>`: Seed for random number generation (e.g., 2)
-- `-d <density>`: Density percentage (e.g., 20)
-- `-i <iterations>`: Number of iterations (e.g., 10)
+#### Parallel Run
+
+To run the parallel program, use the following command:
+
+```sh
+mpirun -np <number_of_processes> ./main_{sendrecv,collectives} -n <grid_size> -s <seed> -d <density> -i <iterations> [-v] [-c]
+```
+
+Example:
+
+```sh
+mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10
+```
+
+- `-np <number_of_processes>`: Number of processes
+- `-n <grid_size>`: Size of the grid
+- `-s <seed>`: Seed for random number generation
+- `-d <density>`: Density percentage
+- `-i <iterations>`: Number of iterations
 - `-v`: Verbose mode (optional)
-- `-c`: Verify the results by comparing with the parallel computation (optional)
+- `-c`: Verify the results by comparing with the sequential computation (optional)
+
 
 #### Repeated Runs
 
-To run the parallel program multiple times with customizable parameters, use the `make run_sendrecv` target:
-
-```sh
-make run_sendrecv P=<number_of_processes> N=<grid_size> SEED=<seed> DENSITY=<density> ITERATIONS=<iterations> REPS=<repetitions>
-```
-
-Example:
-
-```sh
-make run_sendrecv P=4 N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
-```
-
-To run the sequential program multiple times with customizable parameters, use the `make run_sequential` target:
+To run the sequential program multiple times, use the `make run_sequential` target:
 
 ```sh
 make run_sequential N=<grid_size> SEED=<seed> DENSITY=<density> ITERATIONS=<iterations> REPS=<repetitions>
@@ -87,24 +67,49 @@ Example:
 make run_sequential N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
 ```
 
-- `P=<number_of_processes>`: Number of processes (default: 1, only for parallel)
-- `N=<grid_size>`: Size of the grid (default: 1000)
-- `SEED=<seed>`: Seed for random number generation (default: 2)
-- `DENSITY=<density>`: Density percentage (default: 20)
-- `ITERATIONS=<iterations>`: Number of iterations (default: 10)
-- `REPS=<repetitions>`: Number of repetitions (default: 1)
-
-### Example Usage
+To run the parallel program multiple times use:
 
 ```sh
-make clean
-make
-mpirun -np 4 ./main_sendrecv -n 8 -s 1 -d 30 -i 10 -v -c
-mpirun -np 4 ./main_collectives -n 8 -s 1 -d 30 -i 10 -v -c
-./main_sequential -n 8 -s 1 -d 30 -i 10 -v
-make run_sendrecv P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
-make run_collectives P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
+make {run_sendrecv,run_collectives} P=<number_of_processes> N=<grid_size> SEED=<seed> DENSITY=<density> ITERATIONS=<iterations> REPS=<repetitions>
+```
+
+Example:
+
+```sh
+make run_sendrecv P=4 N=1000 SEED=2 DENSITY=20 ITERATIONS=10 REPS=3
+```
+
+- `P=<number_of_processes>`: Number of processes (default: 4, only for parallel)
+- `N=<grid_size>`: Size of the grid (default: 100)
+- `SEED=<seed>`: Seed for random number generation (default: 1)
+- `DENSITY=<density>`: Density percentage (default: 30)
+- `ITERATIONS=<iterations>`: Number of iterations (default: 10)
+- `REPS=<repetitions>`: Number of repetitions (default: 10)
+
+### Output
+
+#### Sequential
+
+```sh
 make run_sequential N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
 ```
 
-This `README.md` file provides an overview of the compilation and execution process for both the parallel and sequential versions of your program. The commands and examples are tailored to reflect the current Makefile and the directory structure where the binaries and object files are stored in the `bin` directory.
+```raw
+reps    n       seed    density iters   implementation  time (ms)       alive   dead
+1       1000    1       30      10      sequential      152.763877      365156  634844
+2       1000    1       30      10      sequential      149.611482      365156  634844
+3       1000    1       30      10      sequential      149.281325      365156  634844
+```
+
+#### Parallel SendRecv
+
+```sh
+make run_sendrecv P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
+```
+```raw
+make run_sendrecv P=4 N=1000 SEED=1 DENSITY=30 ITERATIONS=10 REPS=3
+reps    np      n       seed    density iters   dimx    dimy    implementation  time (ms)       alive   dead
+1       4       1000    1       30      10      2       2       sendrecv        34.868822       365156  634844
+2       4       1000    1       30      10      2       2       sendrecv        44.094889       365156  634844
+3       4       1000    1       30      10      2       2       sendrecv        35.395157       365156  634844
+```

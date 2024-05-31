@@ -22,7 +22,7 @@ void main_sequential(int argc, char *argv[])
     // time variable that run sequential simulation function will modify
     // to store the time it took to run the simulation
     double seq_time;
-    run_sequential_simulation(n, seed, density, iterations, final_matrix, &seq_time);
+    run_sequential_simulation(n, seed, density, iterations, final_matrix, &seq_time, verbose);
 
     // print final matrix if verbose
     if (verbose)

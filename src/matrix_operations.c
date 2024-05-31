@@ -31,7 +31,7 @@ void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], ui
 
   // fill rows
   for (int j = 0; j < n_loc_c; j++)
-  {
+  { 
     extended[0][j + 2] = matrix[n_loc_r - 2][j];
     extended[1][j + 2] = matrix[n_loc_r - 1][j];
     extended[n_loc_r + 2][j + 2] = matrix[0][j];
@@ -47,26 +47,30 @@ void fill_extended_grid(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], ui
     extended[i + 2][n_loc_c + 3] = matrix[i][1];
   }
 
-  // corners
+  // top left
   extended[0][0] = matrix[n_loc_r - 2][n_loc_c - 2];
   extended[0][1] = matrix[n_loc_r - 2][n_loc_c - 1];
-  extended[0][n_loc_c + 2] = matrix[n_loc_r - 2][0];
-  extended[0][n_loc_c + 3] = matrix[n_loc_r - 2][1];
-
   extended[1][0] = matrix[n_loc_r - 1][n_loc_c - 2];
   extended[1][1] = matrix[n_loc_r - 1][n_loc_c - 1];
+
+  // top right
+  extended[0][n_loc_c + 2] = matrix[n_loc_r - 2][0];
+  extended[0][n_loc_c + 3] = matrix[n_loc_r - 2][1];
   extended[1][n_loc_c + 2] = matrix[n_loc_r - 1][0];
   extended[1][n_loc_c + 3] = matrix[n_loc_r - 1][1];
 
+  // bottom left
   extended[n_loc_r + 2][0] = matrix[0][n_loc_c - 2];
   extended[n_loc_r + 2][1] = matrix[0][n_loc_c - 1];
-  extended[n_loc_r + 2][n_loc_c + 2] = matrix[0][0];
-  extended[n_loc_r + 2][n_loc_c + 3] = matrix[0][1];
-
   extended[n_loc_r + 3][0] = matrix[1][n_loc_c - 2];
   extended[n_loc_r + 3][1] = matrix[1][n_loc_c - 1];
+
+  // bottom right
+  extended[n_loc_r + 2][n_loc_c + 2] = matrix[0][0];
+  extended[n_loc_r + 2][n_loc_c + 3] = matrix[0][1];
   extended[n_loc_r + 3][n_loc_c + 2] = matrix[1][0];
   extended[n_loc_r + 3][n_loc_c + 3] = matrix[1][1];
+
 }
 
 void fill_matrix(int n_loc_r, int n_loc_c, uint8_t (*matrix)[n_loc_c], int n, int density, int m_offset_r, int m_offset_c)
