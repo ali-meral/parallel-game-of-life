@@ -24,7 +24,7 @@ void count_cells(int n_loc_r, int n_loc_c, uint8_t matrix[n_loc_r][n_loc_c], int
     }
 }
 
-void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, int *iterations, int *verbose, int *verify)
+void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, int *iterations, int *verbose, int *verify, int *reps)
 {
     static struct option long_options[] = {
         {"number", optional_argument, 0, 'n'},
@@ -33,10 +33,11 @@ void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, in
         {"verbose", optional_argument, 0, 'v'},
         {"iterations", optional_argument, 0, 'i'},
         {"verify", optional_argument, 0, 'c'},
+        {"reps", optional_argument, 0, 'r'},
         {0, 0, 0, 0}};
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "n:s:d:vi:c", long_options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "n:s:d:vi:cr:", long_options, NULL)) != -1)
     {
         switch (opt)
         {
@@ -58,8 +59,11 @@ void parse_arguments(int argc, char *argv[], int *n, int *seed, int *density, in
         case 'c':
             *verify = 1;
             break;
+        case 'r':
+            *reps = atoi(optarg);
+            break;
         default:
-            fprintf(stderr, "Usage: %s [-n size] [-s seed] [-d density] [-i iterations] [-v verbose] [-c verify]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-n size] [-s seed] [-d density] [-i iterations] [-v verbose] [-c verify] [-r repetitions]\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     }

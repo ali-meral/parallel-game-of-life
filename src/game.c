@@ -8,7 +8,7 @@
 #include <getopt.h>
 
 typedef struct {
-    int n, seed, density, iterations, verbose, verify;
+    int n, seed, density, iterations, verbose, verify, reps;
     int dims[2], coords[2], pers[2], rank, size, prow_idx, pcol_idx;
     int n_loc_r, n_loc_c, nprows, npcols;
     MPI_Comm cartcomm;
@@ -22,6 +22,7 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
     params->iterations = 2;
     params->verbose = 0;
     params->verify = 0;
+    params->reps = 1;
 
     params->pers[0] = params->pers[1] = 1; // makes it periodic
 
@@ -31,7 +32,7 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
 
     MPI_Init(&argc, &argv);
 
-    parse_arguments(argc, argv, &params->n, &params->seed, &params->density, &params->iterations, &params->verbose, &params->verify);
+    parse_arguments(argc, argv, &params->n, &params->seed, &params->density, &params->iterations, &params->verbose, &params->verify, &params->reps);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &params->rank);
     MPI_Comm_size(MPI_COMM_WORLD, &params->size);
@@ -56,12 +57,6 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
         params->dims[0] = 32;
         params->dims[1] = 32;
         break;
-    }
-
-    if (params->rank == 0)
-    {
-        // print parameters grid size, seed, local grid size and dimensions in both directions
-        printf("%d\t%d\t%d\t%d\t%d\t%d\t", params->n, params->seed, params->density, params->iterations, params->dims[0], params->dims[1]);
     }
 
 
@@ -117,6 +112,12 @@ void run_simulation(SimulationParams *params, void (*communicate)(int, int, uint
     {
         printf("Generation 0:\n");
         print_matrix(params->n_loc_r, params->n_loc_c, matrix, params->rank, params->size);
+    }
+
+    if (params->rank == 0)
+    {
+        // print parameters grid size, seed, local grid size and dimensions in both directions
+        printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\t", params->size, params->n, params->seed, params->density, params->iterations, params->dims[0], params->dims[1]);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -191,7 +192,15 @@ void run_collectives(int argc, char *argv[])
 {
     SimulationParams params;
     initialize(argc, argv, &params, 0);
-    run_simulation(&params, collectives_communicate, "collectives");
+    // print the header
+    if (params.rank == 0)
+    {
+        printf("np\tn\tseed\tdensity\titers\tdimx\tdimy\timplementation\ttime (ms)\talive\tdead\n");
+    }
+    for (int i = 0; i < params.reps; i++)
+    {
+        run_simulation(&params, collectives_communicate, "collectives");
+    }
     MPI_Finalize();
 }
 
@@ -204,8 +213,17 @@ void run_sendrecv(int argc, char *argv[])
     MPI_Type_vector(params.n_loc_r, 1, params.n_loc_c, MPI_UINT8_T, &col_type);
     MPI_Type_commit(&col_type);
 
-    run_simulation(&params, sendrecv_communicate, "sendrecv");
+    // print the header
+    if (params.rank == 0)
+    {
+        printf("np\tn\tseed\tdensity\titers\tdimx\tdimy\timplementation\ttime (ms)\talive\tdead\n");
+    }
 
+    for (int i = 0; i < params.reps; i++)
+    {
+        run_simulation(&params, sendrecv_communicate, "sendrecv");
+    }
+     
     MPI_Type_free(&col_type);
     MPI_Finalize();
 }

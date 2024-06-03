@@ -13,36 +13,41 @@ void main_sequential(int argc, char *argv[])
     int verbose = 0;
     int density = 10;
     int iterations = 3;
+    int reps = 1;
 
     // Parse command-line arguments
-    parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, NULL);
+    parse_arguments(argc, argv, &n, &seed, &density, &iterations, &verbose, NULL, &reps);
 
     uint8_t(*final_matrix)[n] = (uint8_t(*)[n])malloc(n * n * sizeof(uint8_t));
 
-    // time variable that run sequential simulation function will modify
-    // to store the time it took to run the simulation
-    double seq_time;
-    run_sequential_simulation(n, seed, density, iterations, final_matrix, &seq_time, verbose);
-
-    // print final matrix if verbose
-    if (verbose)
+    // for each repetition
+    for (int i = 0; i < reps; ++i)
     {
-        printf("Final matrix:\n");
-        print_matrix_seq(n, n, final_matrix);
+        // time variable that run sequential simulation function will modify
+        // to store the time it took to run the simulation
+        double seq_time;
+        run_sequential_simulation(n, seed, density, iterations, final_matrix, &seq_time, verbose);
+
+        // print final matrix if verbose
+        if (verbose)
+        {
+            printf("Final matrix:\n");
+            print_matrix_seq(n, n, final_matrix);
+        }
+
+        // count cells using count_cells
+        int alive = 0;
+        int dead = 0;
+        count_cells(n, n, final_matrix, &alive, &dead);
+        printf("%d\t%d\t%d\t%d\tsequential\t%lf\t%d\t%d\n", n, seed, density, iterations, seq_time, alive, dead);
     }
-
-    // count cells using count_cells
-    int alive = 0;
-    int dead = 0;
-    count_cells(n, n, final_matrix, &alive, &dead);
-    printf("%d\t%d\t%d\t%d\tsequential\t%lf\t%d\t%d\n", n, seed, density, iterations, seq_time, alive, dead);
-
 
     free(final_matrix);
 }
 
 int main(int argc, char *argv[])
 {
+    printf("n\tseed\tdensity\titers\timplementation\ttime (ms)\talive\tdead\n");
     main_sequential(argc, argv);
     return 0;
 }
