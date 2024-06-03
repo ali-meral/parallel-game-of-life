@@ -25,6 +25,10 @@ void initialize(int argc, char *argv[], SimulationParams *params, int reorder)
 
     params->pers[0] = params->pers[1] = 1; // makes it periodic
 
+    // initialize dims to 0
+    params->dims[0] = 0;
+    params->dims[1] = 0;
+
     MPI_Init(&argc, &argv);
 
     parse_arguments(argc, argv, &params->n, &params->seed, &params->density, &params->iterations, &params->verbose, &params->verify);

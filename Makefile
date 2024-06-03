@@ -8,7 +8,7 @@ REPS ?= 10
 
 # Compiler and flags
 MPICC = mpicc
-CFLAGS = -I./include -w  # Add -w to suppress all warnings
+CFLAGS = -I./include -w -O3
 
 # object files
 OBJS = game.o matrix_operations.o utilities.o mpi_communication.o
