@@ -49,9 +49,9 @@ mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10 -r 1
 - `-s <seed>`: Seed for random number generation
 - `-d <density>`: Density percentage
 - `-i <iterations>`: Number of iterations
+- `-r <repetitions>`: Repetitions
 - `-v`: Verbose mode (optional)
 - `-c`: Verify the results by comparing with the sequential computation (optional)
-- `-r`: Repetitions
 
 
 ### Output
@@ -59,25 +59,36 @@ mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10 -r 1
 #### Sequential
 
 ```sh
-./main_sequential -n 8 -s 2 -d 20 -i 10 -r 5
+./main_sequential -n 1024 -s 2 -d 20 -i 10 -r 3
 ```
 
 ```raw
 n       seed    density iters   implementation  time (ms)       alive   dead
-8       2       20      10      sequential      0.007739        0       64
-8       2       20      10      sequential      0.001500        0       64
-8       2       20      10      sequential      0.001250        0       64
+1024    2       20      10      sequential      45.190777       282689  765887
+1024    2       20      10      sequential      44.530085       282689  765887
+1024    2       20      10      sequential      47.758312       282689  765887
 ```
 
 #### Parallel SendRecv
 
 ```sh
-mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10 -r 3
+mpirun -np 4 ./main_sendrecv -n 1024 -s 2 -d 20 -i 10 -r 3
 ```
 
 ```raw
 np      n       seed    density iters   dimx    dimy    implementation  time (ms)       alive   dead
-4       8       2       20      10      2       2       sendrecv        0.053482        0       64
-4       8       2       20      10      2       2       sendrecv        0.028771        0       64
-4       8       2       20      10      2       2       sendrecv        0.028081        0       64
+4       1024    2       20      10      2       2       sendrecv        10.266107       282689  765887
+4       1024    2       20      10      2       2       sendrecv        14.951359       282689  765887
+4       1024    2       20      10      2       2       sendrecv        13.364727       282689  765887
+```
+
+#### Parallel Collectives
+```sh
+mpirun -np 4 ./main_collectives -n 1024 -s 2 -d 20 -i 10 -r 3
+```
+```raw
+np      n       seed    density iters   dimx    dimy    implementation  time (ms)       alive   dead
+4       1024    2       20      10      2       2       collectives     10.252547       282689  765887
+4       1024    2       20      10      2       2       collectives     10.510888       282689  765887
+4       1024    2       20      10      2       2       collectives     10.843257       282689  765887
 ```
