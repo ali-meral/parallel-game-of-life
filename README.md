@@ -1,6 +1,26 @@
 # Distributed Game of Life using MPI
 
-A high-performance parallel implementation of Conway’s Game of Life using MPI. Includes both sequential and parallel implementations (Send/Recv and Collectives), plus a standalone visualization notebook.
+A high-performance parallel implementation of a slight variation of Conway’s Game of Life using MPI. Includes both sequential and parallel versions (Send/Recv and Collectives), along with a standalone visualization notebook.
+
+## Rule Variation
+
+This version uses a modified neighborhood for each cell. Instead of the 8 immediate neighbors, each cell looks at a custom pattern:
+
+- `(i-2, j-2)`
+- `(i-1, j)`
+- `(i-1, j+1)`
+- `(i, j-2)`
+- `(i, j+1)`
+- `(i+2, j-2)`
+- `(i+2, j)`
+- `(i+2, j+2)`
+
+The rules are:
+- A cell becomes or stays alive if it has exactly 3 neighbors.
+- A cell stays alive if it has exactly 2 neighbors and is already alive.
+- Otherwise, the cell becomes or remains dead.
+
+The grid wraps around (toroidal).
 
 ## Compilation
 
@@ -37,7 +57,7 @@ Example:
 To run the parallel program, use the following command:
 
 ```sh
-mpirun -np <number_of_processes> ./main_{sendrecv,collectives} -n <grid_size> -s <seed> -d <density> -i <iterations> -r <repetitions> [-v] [-c] 
+mpirun -np <number_of_processes> ./main_{sendrecv,collectives} -n <grid_size> -s <seed> -d <density> -i <iterations> -r <repetitions> [-v] [-c]
 ```
 
 Example:
@@ -53,7 +73,7 @@ mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10 -r 1
 - `-i <iterations>`: Number of iterations
 - `-r <repetitions>`: Repetitions
 - `-v`: Verbose mode (optional)
-- `-c`: Verify the results by comparing with the sequential computation (optional)
+- `-c`: Verify results by comparing with the sequential run (optional)
 
 ## Output
 
@@ -100,8 +120,4 @@ np      n       seed    density iters   dimx    dimy    implementation  time (ms
 
 The `animate.ipynb` notebook provides a visual animation of the Game of Life using NumPy and Matplotlib. It simulates and displays cell evolution across generations based on an initial state.
 
-- No compilation required
-- Easy to experiment with grid patterns
-- Good for debugging or demonstrations
-
-![Game of Life Animation](assets/life_sim.gif)
+![Game of Life Animation](fig/life_sim.gif)
