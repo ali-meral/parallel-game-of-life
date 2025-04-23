@@ -1,6 +1,8 @@
-## Distributed Game of Life using MPI
+# Distributed Game of Life using MPI
 
-### Compilation
+A high-performance parallel implementation of Conway’s Game of Life using MPI. Includes both sequential and parallel implementations (Send/Recv and Collectives), plus a standalone visualization notebook.
+
+## Compilation
 
 To compile the program, run:
 
@@ -14,9 +16,9 @@ To clean up the compiled binaries and object files, run:
 make clean
 ```
 
-### Running the Program
+## Running the Program
 
-#### Sequential Run
+### Sequential Run
 
 To run the sequential program, use the following command:
 
@@ -30,7 +32,7 @@ Example:
 ./main_sequential -n 8 -s 2 -d 20 -i 10
 ```
 
-#### Parallel Run
+### Parallel Run
 
 To run the parallel program, use the following command:
 
@@ -53,10 +55,9 @@ mpirun -np 4 ./main_sendrecv -n 8 -s 2 -d 20 -i 10 -r 1
 - `-v`: Verbose mode (optional)
 - `-c`: Verify the results by comparing with the sequential computation (optional)
 
+## Output
 
-### Output
-
-#### Sequential
+### Sequential
 
 ```sh
 ./main_sequential -n 1024 -s 2 -d 20 -i 10 -r 3
@@ -69,7 +70,7 @@ n       seed    density iters   implementation  time (ms)       alive   dead
 1024    2       20      10      sequential      47.758312       282689  765887
 ```
 
-#### Parallel SendRecv
+### Parallel SendRecv
 
 ```sh
 mpirun -np 4 ./main_sendrecv -n 1024 -s 2 -d 20 -i 10 -r 3
@@ -82,13 +83,25 @@ np      n       seed    density iters   dimx    dimy    implementation  time (ms
 4       1024    2       20      10      2       2       sendrecv        13.364727       282689  765887
 ```
 
-#### Parallel Collectives
+### Parallel Collectives
+
 ```sh
 mpirun -np 4 ./main_collectives -n 1024 -s 2 -d 20 -i 10 -r 3
 ```
+
 ```raw
 np      n       seed    density iters   dimx    dimy    implementation  time (ms)       alive   dead
 4       1024    2       20      10      2       2       collectives     10.252547       282689  765887
 4       1024    2       20      10      2       2       collectives     10.510888       282689  765887
 4       1024    2       20      10      2       2       collectives     10.843257       282689  765887
 ```
+
+## Visualization Notebook
+
+The `animate.ipynb` notebook provides a visual animation of the Game of Life using NumPy and Matplotlib. It simulates and displays cell evolution across generations based on an initial state.
+
+- No compilation required
+- Easy to experiment with grid patterns
+- Good for debugging or demonstrations
+
+![Game of Life Animation](assets/life_sim.gif)
