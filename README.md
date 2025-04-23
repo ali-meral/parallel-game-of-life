@@ -1,4 +1,4 @@
-## HPC Assignment 2
+## Distributed Game of Life using MPI
 
 ### Compilation
 
